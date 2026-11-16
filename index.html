@@ -219,7 +219,7 @@ textarea{width:100%;min-height:120px;font:inherit;font-size:13px;background:var(
 
 <section>
   <h2><span class="n">2</span>כמה רוצים בשבוע</h2>
-  <p class="hint">0 = לא מגדלים. בגינה קטנה עדיף עלים מהירים על פני כרוב, כרובית וברוקולי שתופסים הרבה מקום. "עד 15.12" = מועד השתילה האחרון לירק בחורף. אחריו הוא עולה לפריחה או לא יוצר ראש בחום של האביב, ולכן היומן מפסיק לשתול אותו.</p>
+  <p class="hint">0 = לא מגדלים. בגינה קטנה עדיף עלים מהירים על פני כרוב, כרובית וברוקולי שתופסים הרבה מקום. לכל ירק יש מועד שתילה אחרון בחורף. אחריו הוא עולה לפריחה או לא יוצר ראש בחום של האביב, ולכן היומן מפסיק לשתול אותו, ומופיעה אזהרה אם בוחרים ירק שהמועד שלו כבר עבר.</p>
   <div id="cropList"></div>
   <div class="per-head"><b>מסביב לגינה</b> <span class="hint" style="margin:0">רב-שנתיים ופרחי חורף לשולי הגינה. הם לא נכנסים לחישוב הערוגות, אבל מופיעים ביומן ובקטיף.</span></div>
   <div id="perList"></div>
@@ -601,8 +601,8 @@ function render(){
   const start=new Date(S.start+'T00:00'), lateNames=[];
   document.querySelectorAll('#cropList .crop').forEach(card=>{
     const c=CROPS.find(x=>x.id===card.dataset.id); const lp=lastPlantDate(c,start); const sp=card.querySelector('.lp'); if(!sp) return;
-    const tooLate=lp&&lp<start; card.classList.toggle('late',!!tooLate);
-    sp.textContent=lp?(tooLate?' · עבר מועד השתילה':' · עד '+fmtD(lp)):'';
+    const tooLate=!!(lp&&lp<start&&+S.qty[c.id]>0); card.classList.toggle('late',tooLate);
+    sp.textContent=tooLate?' · עבר מועד השתילה ('+fmtD(lp)+')':'';
     if(tooLate&&+S.qty[c.id]>0) lateNames.push(c.n);
   });
   if(lateNames.length) $('legend').insertAdjacentHTML('beforeend',`<span><span class="rot bad">⚠ ${lateNames.join(', ')}</span> עבר מועד השתילה לעונה הזו, ולכן לא נכנסו לתכנון</span>`);
