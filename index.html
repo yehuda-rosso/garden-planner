@@ -41,6 +41,13 @@ section{margin-top:28px}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
 label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);font-weight:600}
 input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+/* iPhone zooms into any field under 16px, and date fields have a wide built-in minimum: keep both inside the screen */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+input,select,textarea{font-size:16px!important;max-width:100%}
+input[type="date"]{-webkit-appearance:none;appearance:none;width:100%;min-width:0;display:block;min-height:42px;text-align:right}
+input[type="date"]::-webkit-date-and-time-value{text-align:right}
+label.f{min-width:0}
+.grid-set>*{min-width:0}
 input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--leaf);outline-offset:2px}
 .grid-set{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
 button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:7px 12px}
