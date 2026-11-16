@@ -66,6 +66,11 @@ button.ghost{background:transparent}
 .per-head{margin-top:18px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
 .per-head b{font-family:var(--display);font-weight:400;font-size:18px;color:var(--leaf)}
 .crop .why{font-size:11.5px;color:var(--leaf);line-height:1.2}
+/* save-as-link bar */
+.linkbar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--panel);border-top:1px solid var(--line);box-shadow:0 -8px 24px -16px rgba(0,0,0,.5);display:grid;gap:8px;
+  padding-block:12px calc(12px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.linkbar #linkMsg{font-size:14.5px}
+.linkbar textarea{min-height:70px;font-size:12px!important;direction:ltr}
 /* sticky capacity bar */
 .cap{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:grid;gap:8px;box-shadow:0 6px 18px -14px rgba(0,0,0,.5)}
 .cap-top{display:flex;flex-wrap:wrap;gap:4px 18px;align-items:baseline;font-variant-numeric:tabular-nums}
@@ -177,6 +182,7 @@ textarea{width:100%;min-height:120px;font:inherit;font-size:13px;background:var(
     <p>בוחרים כמה רוצים לאכול מכל ירק בשבוע, ומקבלים מפת ערוגות, יומן שתילה וזמני קטיף לכל עונת החורף.</p>
   </div>
   <div class="row">
+    <button class="primary" id="btnSave" type="button">שמור תכנון כקישור</button>
     <button class="ghost" id="btnSample" type="button">טען דוגמה</button>
     <button class="ghost" id="btnClear" type="button">התחל מאפס</button>
   </div>
@@ -270,10 +276,15 @@ textarea{width:100%;min-height:120px;font:inherit;font-size:13px;background:var(
 </section>
 
 <footer>
-  נתוני הגידול לקוחים מחומרי הקורס "גן הירק היצרני". נתונים המסומנים ≈ הם הערכה שעוד לא אושרה בקורס. התכנון נשמר רק בדפדפן שלכם.
+  נתוני הגידול לקוחים מחומרי הקורס "גן הירק היצרני". נתונים המסומנים ≈ הם הערכה שעוד לא אושרה בקורס. התכנון נשמר אוטומטית בדפדפן שלכם. כדי לגבות אותו או לפתוח במכשיר אחר, לחצו "שמור תכנון כקישור" ושמרו את הקישור.
 </footer>
 </div>
 <div class="toast" id="toast" hidden></div>
+<div class="linkbar" id="linkbar" hidden>
+  <div id="linkMsg"></div>
+  <textarea id="linkBox" readonly hidden></textarea>
+  <div class="row"><button type="button" class="primary" id="linkYes">אישור</button><button type="button" id="linkNo">סגור</button></div>
+</div>
 
 <script>
 // ---------- crop data (course material; est = fields that are estimates) ----------
@@ -392,6 +403,7 @@ function defaultState(sample){
 }
 let S;
 try{S=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){S=null}
+const HAD_SAVED=!!(S&&S.qty);
 if(!S||!S.qty){S=defaultState(true)}
 if(!S.per){S.per={}}
 if(!S.groups){S.groups=[{n:+S.beds||6,len:+S.len||3,wid:+S.wid||80}]}
@@ -808,7 +820,59 @@ $('btnSample').addEventListener('click',e=>arm(e.currentTarget,'טען דוגמ�
 $('btnClear').addEventListener('click',e=>arm(e.currentTarget,'התחל מאפס',()=>{const keep={name:S.name,start:S.start,end:S.end,groups:S.groups,rhythm:S.rhythm,cm:S.cm};S=Object.assign(defaultState(false),keep);save();init();toast('כל הכמויות אופסו')}));
 
 function init(){fillInputs();renderCrops();renderPer();render()}
-bindInputs();init();
+
+// ---------- save the whole plan inside a link ----------
+const b64u={enc:u8=>btoa(String.fromCharCode(...u8)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''),
+  dec:s=>{s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return Uint8Array.from(atob(s),c=>c.charCodeAt(0))}};
+async function zip(u8,dir){
+  if(typeof CompressionStream==='undefined') return null;
+  const st=new Blob([u8]).stream().pipeThrough(dir==='in'?new CompressionStream('deflate-raw'):new DecompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(st).arrayBuffer());
+}
+const nz=o=>Object.fromEntries(Object.entries(o||{}).filter(([,v])=>+v>0));
+async function planToLink(){
+  const o={v:1,n:S.name,s:S.start,e:S.end,g:S.groups,r:+S.rhythm,q:nz(S.qty),p:nz(S.per),d:Object.keys(S.done||{}).filter(k=>S.done[k]),c:S.cm};
+  const raw=new TextEncoder().encode(JSON.stringify(o));
+  const z=await zip(raw,'in').catch(()=>null);
+  const code=z?'z'+b64u.enc(z):'j'+b64u.enc(raw);
+  return location.origin+location.pathname+'#plan='+code;
+}
+async function linkToPlan(code){
+  const kind=code[0], bytes=b64u.dec(code.slice(1));
+  const raw=kind==='z'?await zip(bytes,'out'):bytes;
+  const o=JSON.parse(new TextDecoder().decode(raw));
+  const st=defaultState(false);
+  Object.assign(st,{name:o.n||'',start:o.s||st.start,end:o.e||st.end,groups:Array.isArray(o.g)&&o.g.length?o.g:st.groups,rhythm:o.r||2,cm:o.c||'deep'});
+  for(const k in o.q||{}) if(k in st.qty) st.qty[k]=+o.q[k];
+  for(const k in o.p||{}) if(k in st.per) st.per[k]=+o.p[k];
+  (o.d||[]).forEach(k=>st.done[k]=true);
+  return st;
+}
+function bar(msg,yes,no,onYes,onNo,text){
+  const el=$('linkbar'); $('linkMsg').innerHTML=msg;
+  const box=$('linkBox'); box.hidden=!text; if(text){box.value=text}
+  const y=$('linkYes'), n=$('linkNo'); y.textContent=yes; n.textContent=no; y.hidden=!yes;
+  y.onclick=()=>{el.hidden=true;onYes&&onYes()}; n.onclick=()=>{el.hidden=true;onNo&&onNo()};
+  el.hidden=false; if(text){box.focus();box.select()}
+}
+$('btnSave').addEventListener('click',async()=>{
+  const url=await planToLink();
+  const title=(S.name||'התכנון שלי')+' – מתכנן הערוגות';
+  if(navigator.share){try{await navigator.share({title,text:'התכנון שלי במתכנן הערוגות',url});toast('הקישור נשלח');return}catch(e){if(e&&e.name==='AbortError')return}}
+  try{await navigator.clipboard.writeText(url);toast('הקישור הועתק. שמרו אותו בוואטסאפ או בפתקים');}
+  catch(e){bar('<b>הקישור לתכנון שלכם</b><br>העתיקו אותו ושמרו בוואטסאפ או בפתקים. פתיחה שלו בכל מכשיר טוענת את התכנון.','', 'סגור',null,null,url)}
+});
+async function checkLinkPlan(){
+  const m=location.hash.match(/plan=([A-Za-z0-9_-]+)/); if(!m) return;
+  const clean=()=>history.replaceState(null,'',location.pathname+location.search);
+  let st; try{st=await linkToPlan(m[1])}catch(e){clean();toast('הקישור פגום ולא ניתן לטעון ממנו תכנון');return}
+  const hasLocal=HAD_SAVED&&Object.values(S.qty).some(v=>+v>0);
+  const apply=()=>{S=st;save();init();clean();toast('התכנון נטען מהקישור ונשמר במכשיר הזה')};
+  if(!hasLocal){apply();return}
+  bar(`<b>נפתח קישור עם תכנון${st.name?' "'+st.name.replace(/[<>&]/g,'')+'"':''}.</b><br>לטעון אותו? הוא יחליף את התכנון ששמור כרגע במכשיר הזה.`,'טען את התכנון מהקישור','השאר את התכנון שלי',apply,clean);
+}
+bindInputs();init();checkLinkPlan();
+window.addEventListener('hashchange',checkLinkPlan);
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>render());
 new MutationObserver(()=>render()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 </script>
