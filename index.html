@@ -1,0 +1,807 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="מתכנן ערוגות לגן ירק ביתי: כמויות שבועיות, מפת ערוגות, יומן שתילה ומה קוטפים השבוע.">
+<title>מתכנן הערוגות</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Suez+One&family=Assistant:wght@400;600;700&display=swap">
+<style>
+/* Layout: a single working column of numbered steps; a sticky capacity bar keeps "does it fit?" visible while you edit. Beds are drawn to scale as soil strips. */
+:root{
+  --bg:#f1f3ec; --panel:#ffffff; --ink:#1f2a1d; --muted:#5f6b5a; --line:#d9ded0;
+  --leaf:#2f6b3a; --leaf-soft:#e2eddd; --soil:#5a4433; --soil-edge:#3f2f23; --path:#d8cdb9;
+  --warn:#b4541e; --warn-soft:#f7e3d6; --ok:#2f6b3a;
+  --f-umb:#c9b21f; --f-cru:#2f8f83; --f-bet:#b0316a; --f-com:#7fae2a; --f-all:#8a6fc4; --f-leg:#e07a8f;
+  --display:"Suez One","Assistant",Georgia,serif; --body:"Assistant","Segoe UI",Arial,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141a13; --panel:#1c241b; --ink:#e7ecdf; --muted:#9aa693; --line:#2f3a2c;
+  --leaf:#7cc28a; --leaf-soft:#22331f; --soil:#4a3829; --soil-edge:#2a1f16; --path:#3a3326;
+  --warn:#f0a070; --warn-soft:#3a2518; --ok:#7cc28a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a13; --panel:#1c241b; --ink:#e7ecdf; --muted:#9aa693; --line:#2f3a2c;
+  --leaf:#7cc28a; --leaf-soft:#22331f; --soil:#4a3829; --soil-edge:#2a1f16; --path:#3a3326;
+  --warn:#f0a070; --warn-soft:#3a2518; --ok:#7cc28a; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;direction:rtl;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 48px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:1040px;margin:0 auto}
+h1,h2{font-family:var(--display);font-weight:400;text-wrap:balance;margin:0}
+h1{font-size:clamp(28px,5vw,40px);color:var(--leaf)}
+h2{font-size:22px;display:flex;gap:10px;align-items:baseline}
+h2 .n{font-family:var(--body);font-weight:700;font-size:13px;color:var(--panel);background:var(--leaf);border-radius:50%;width:24px;height:24px;display:inline-grid;place-items:center;flex:none;transform:translateY(-2px)}
+header{padding-block:24px 8px;display:flex;flex-wrap:wrap;gap:8px 20px;align-items:end;justify-content:space-between}
+header p{margin:4px 0 0;color:var(--muted);max-width:60ch}
+section{margin-top:28px}
+.hint{color:var(--muted);font-size:14px;margin:6px 0 12px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);font-weight:600}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--leaf);outline-offset:2px}
+.grid-set{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:7px 12px}
+button.primary{background:var(--leaf);color:var(--panel);border-color:var(--leaf);font-weight:700}
+button.ghost{background:transparent}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+
+.groups{margin-top:10px;display:grid;gap:8px}
+.g-head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.g-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) 36px;gap:8px;align-items:center}
+.g-lbl{font-size:12px;color:var(--muted);font-weight:600}
+.g-row input{width:100%;font-variant-numeric:tabular-nums}
+.g-row .del{width:36px;height:36px;padding:0;font-size:18px;color:var(--muted)}
+#groups{display:grid;gap:6px}
+#addGroup{justify-self:start;color:var(--leaf);font-weight:700}
+.per-head{margin-top:18px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.per-head b{font-family:var(--display);font-weight:400;font-size:18px;color:var(--leaf)}
+.crop .why{font-size:11.5px;color:var(--leaf);line-height:1.2}
+/* sticky capacity bar */
+.cap{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:grid;gap:8px;box-shadow:0 6px 18px -14px rgba(0,0,0,.5)}
+.cap-top{display:flex;flex-wrap:wrap;gap:4px 18px;align-items:baseline;font-variant-numeric:tabular-nums}
+.cap-top b{font-size:20px}
+.cap-status{font-weight:700;padding:2px 10px;border-radius:999px;font-size:14px}
+.cap-status.ok{background:var(--leaf-soft);color:var(--ok)}
+.cap-status.bad{background:var(--warn-soft);color:var(--warn)}
+.meter{height:10px;border-radius:99px;background:var(--path);overflow:hidden;display:flex}
+.meter span{height:100%}
+
+/* crop rows: compact, icon + name + stepper */
+.fam{margin-top:10px}
+.fam-h{font-size:12px;font-weight:700;color:var(--muted);display:flex;gap:6px;align-items:center;letter-spacing:.03em}
+.sw{width:10px;height:10px;border-radius:50%;flex:none}
+.crops{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px;margin-top:6px}
+.crop{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px 6px 4px 4px;display:grid;grid-template-columns:34px 1fr auto;gap:8px;align-items:center;min-height:44px}
+.crop.on{border-color:var(--leaf)}
+.crop:not(.on) .ic{opacity:.45;filter:grayscale(.6)}
+.ic{width:34px;height:34px;display:block}
+.crop .nm{font-weight:700;font-size:14.5px;line-height:1.15;display:flex;gap:5px;align-items:center;min-width:0}
+.crop .unit{font-size:11.5px;color:var(--muted);font-weight:600;line-height:1.1}
+.est{font-size:10px;color:var(--muted);border:1px dashed var(--muted);border-radius:3px;padding:0 3px;font-weight:600;cursor:help}
+.step{display:flex;align-items:center;gap:2px}
+.step button{width:28px;height:28px;padding:0;font-size:16px;line-height:1;display:grid;place-items:center;border-radius:50%}
+.step output{min-width:2ch;text-align:center;font-weight:700;font-size:15px;font-variant-numeric:tabular-nums}
+.crop.on .step output{color:var(--leaf)}
+
+/* beds */
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;gap:6px;align-items:center}
+.beds{display:grid;gap:14px 20px;margin-top:12px;grid-template-columns:repeat(auto-fill,minmax(min(100%,440px),1fr))}
+.bed h3{margin:0 0 4px;font-size:14px;font-weight:700;display:flex;justify-content:space-between;color:var(--muted);font-variant-numeric:tabular-nums}
+.bed.over h3{color:var(--warn)}
+.bed svg{width:100%;height:auto;display:block;margin-left:auto}
+.bed svg text{font-family:var(--body)}
+.slot{cursor:pointer}
+.slot:hover rect.bg{opacity:.95}
+.map-nav{margin:10px 0 8px}
+.rot{display:inline-block;font-size:11px;font-weight:700;border-radius:99px;padding:0 6px}
+.rot.ok{background:var(--leaf-soft);color:var(--ok)}
+.rot.bad{background:var(--warn-soft);color:var(--warn)}
+.chip.new{border-color:var(--leaf)}
+.dim .slot:not(.same){opacity:.22}
+.dim .slot.same:not(.hl){opacity:.6}
+.bedkey{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 4px;border-radius:999px;font-size:12.5px;background:var(--panel);border:1px solid var(--line);color:var(--ink)}
+.chip .ic{width:20px;height:20px}
+.chip span{color:var(--muted);font-variant-numeric:tabular-nums}
+.chip.sel{border-color:var(--leaf);background:var(--leaf-soft)}
+.detail .ic{width:22px;height:22px;display:inline-block;vertical-align:-5px}
+.detail{min-height:44px;margin-top:10px;font-size:14px}
+
+/* calendar */
+.cal{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;align-items:start}
+.day{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+.day.done{opacity:.55}
+.day-h{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+.day-h b{font-family:var(--display);font-weight:400;font-size:20px}
+.day-h small{color:var(--muted)}
+.day ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.day li{display:grid;grid-template-columns:auto 1fr auto;gap:2px 8px;align-items:center;font-size:14.5px}
+.day .ic{width:22px;height:22px}
+.day li .loc{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;text-align:left}
+.day li .q{font-weight:700;font-variant-numeric:tabular-nums}
+.chk{display:inline-flex;gap:6px;align-items:center;font-size:13px;color:var(--muted);cursor:pointer}
+
+/* harvest week view */
+.hv{display:grid;gap:12px}
+.hv-nav{display:grid;grid-template-columns:40px 1fr 40px;align-items:center;gap:8px}
+.hv-nav button{height:40px;font-size:18px;padding:0}
+.hv-title{text-align:center;display:grid}
+.hv-title b{font-family:var(--display);font-weight:400;font-size:22px;color:var(--leaf)}
+.hv-title small{color:var(--muted);font-size:13px}
+.hv-strip{border:0;background:transparent}
+.hv-strip svg{display:block;cursor:pointer}
+.hv-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:6px}
+.hv-item{display:grid;grid-template-columns:36px 1fr;gap:2px 10px;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.hv-item .ic{width:36px;height:36px;grid-row:span 3}
+.hv-item .top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.hv-item .top b{font-size:15.5px}
+.hv-item .amt{font-weight:700;color:var(--leaf);white-space:nowrap}
+.hv-item .where{font-size:12.5px;color:var(--muted)}
+.hv-item .how{font-size:12.5px;color:var(--ink);opacity:.85;line-height:1.35}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:0 6px;border-radius:99px;margin-inline-start:4px;vertical-align:1px}
+.tag.new{background:var(--leaf-soft);color:var(--ok)}
+.tag.last{background:var(--warn-soft);color:var(--warn)}
+.hv-soon{font-size:13.5px;color:var(--muted)}
+.hv-soon b{color:var(--ink)}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.gantt text{font-family:var(--body);fill:var(--ink)}
+.gantt .mut{fill:var(--muted)}
+.compost{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;align-items:end}
+.big{font-family:var(--display);font-size:28px;color:var(--leaf)}
+footer{margin-top:36px;color:var(--muted);font-size:13px;max-width:70ch}
+.toast{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:14px}
+textarea{width:100%;min-height:120px;font:inherit;font-size:13px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px}
+@media (prefers-reduced-motion:no-preference){.meter span{transition:width .3s}}
+@media (max-width:520px){.cap{padding:8px 10px;gap:6px}.cap-top{font-size:13.5px;gap:2px 12px}.cap-top b{font-size:16px}.cap-status{font-size:12.5px}.meter{height:7px}}
+.day summary{cursor:pointer;list-style:none}.day summary::-webkit-details-marker{display:none}.day[open] summary{margin-bottom:6px}.more{font-size:12px;color:var(--leaf);font-weight:600}
+</style>
+
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <h1>מתכנן הערוגות</h1>
+    <p>בוחרים כמה רוצים לאכול מכל ירק בשבוע, ומקבלים מפת ערוגות, יומן שתילה וזמני קטיף לכל עונת החורף.</p>
+  </div>
+  <div class="row">
+    <button class="ghost" id="btnSample" type="button">טען דוגמה</button>
+    <button class="ghost" id="btnClear" type="button">התחל מאפס</button>
+  </div>
+</header>
+
+<div class="cap" id="cap" aria-live="polite">
+  <div class="cap-top">
+    <span>צריך <b id="capNeed">0</b> מ׳ ערוגה</span>
+    <span>יש <b id="capHave">0</b> מ׳</span>
+    <span>ימי שתילה: <b id="capDays">0</b></span>
+    <span class="cap-status ok" id="capStatus">נכנס</span>
+  </div>
+  <div class="meter" id="meter" aria-hidden="true"></div>
+</div>
+
+<section>
+  <h2><span class="n">1</span>הגינה שלי</h2>
+  <p class="hint">מספר השורות נקבע לפי רוחב הערוגה. ירקות קטנים אפשר לצופף עד 10%, ולכן הם נשתלים קודם בערוגות הצרות (גם ב-74 ס״מ נכנסות 4 שורות). ירקות שאוהבים מרווח (שומר, כרוב, כרובית, ברוקולי, קייל, מנגולד, חסה ערבית, קולורבי) מקבלים קודם את הערוגות הרחבות ולא מצופפים. ערוגה רחבה יותר מכניסה עוד שורות, ולכן צריך פחות אורך.</p>
+  <div class="panel grid-set">
+    <label class="f">שם הגינה<input id="gName" type="text" placeholder="הגינה של…"></label>
+    <label class="f">תחילת העונה<input id="gStart" type="date"></label>
+    <label class="f">סוף הקטיף<input id="gEnd" type="date"></label>
+    <label class="f">ביקור במשתלה<select id="gRhythm"><option value="1">כל שבוע</option><option value="2">כל שבועיים</option><option value="3">כל 3 שבועות</option></select></label>
+  </div>
+  <div class="panel groups">
+    <div class="g-head"><b>הערוגות שלי</b><span class="hint" style="margin:0">שורה לכל גודל ערוגה</span></div>
+    <div class="g-row g-lbl" aria-hidden="true"><span>כמה</span><span>אורך (מ׳)</span><span>רוחב (ס״מ)</span><span></span></div>
+    <div id="groups"></div>
+    <button type="button" id="addGroup" class="ghost">+ הוסף גודל ערוגה</button>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">2</span>כמה רוצים בשבוע</h2>
+  <p class="hint">0 = לא מגדלים. בגינה קטנה עדיף עלים מהירים על פני כרוב, כרובית וברוקולי שתופסים הרבה מקום.</p>
+  <div id="cropList"></div>
+  <div class="per-head"><b>מסביב לגינה</b> <span class="hint" style="margin:0">רב-שנתיים ופרחי חורף לשולי הגינה. הם לא נכנסים לחישוב הערוגות, אבל מופיעים ביומן ובקטיף.</span></div>
+  <div id="perList"></div>
+</section>
+
+<section>
+  <h2><span class="n">3</span>מפת הערוגות</h2>
+  <p class="hint">כל ציור הוא צמח במקום שלו בערוגה. כשירק נקטף ומתפנה מקום, השתילה הבאה שם היא ממשפחה אחרת, כדי לגוון את מה שהקרקע נותנת ומקבלת. בחרו שבוע כדי לראות מה גדל באותו זמן. פס ירוק מתחת לערוגה = שותלים שם השבוע. עיגול מקווקו = נקודת זריעה. לחיצה על ירק מראה מתי הוא נשתל ומה בא אחריו.</p>
+  <div class="hv-nav map-nav">
+    <button type="button" id="mapPrev" aria-label="שבוע קודם">→</button>
+    <div class="hv-title"><b id="mapDate"></b><small id="mapSub"></small></div>
+    <button type="button" id="mapNext" aria-label="שבוע הבא">←</button>
+  </div>
+  <div class="legend" id="legend"></div>
+  <div class="beds" id="beds"></div>
+  <div class="detail panel" id="detail">לחצו על ירק בערוגה כדי לראות מתי שותלים אותו.</div>
+</section>
+
+<section>
+  <h2><span class="n">4</span>יומן שתילה</h2>
+  <div class="row" style="justify-content:space-between;margin:6px 0 12px">
+    <p class="hint" style="margin:0">מה קונים במשתלה בכל ביקור, ואיפה שותלים כל דבר.</p>
+    <button id="btnCopy" type="button">העתק את היומן כטקסט</button>
+  </div>
+  <div class="cal" id="cal"></div>
+  <textarea id="copyBox" hidden readonly></textarea>
+</section>
+
+<section>
+  <h2><span class="n">5</span>מה קוטפים השבוע</h2>
+  <p class="hint">בוחרים שבוע (בחצים או בלחיצה על עמודה) ורואים מה מוכן לקטיף, מאיזו ערוגה, כמה ואיך קוטפים. גובה העמודה = כמה ירקות בקטיף באותו שבוע. "לפנות השבוע" = הקטיף האחרון של שתילה מסוימת, ואחריו המקום עובר לשתילה ממשפחה אחרת.</p>
+  <div class="panel hv">
+    <div class="hv-nav">
+      <button type="button" id="hvPrev" aria-label="שבוע קודם">→</button>
+      <div class="hv-title"><b id="hvDate"></b><small id="hvSub"></small></div>
+      <button type="button" id="hvNext" aria-label="שבוע הבא">←</button>
+    </div>
+    <div class="scroll hv-strip"><svg id="hvStrip"></svg></div>
+    <div id="hvList" class="hv-list"></div>
+    <div id="hvSoon" class="hv-soon"></div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">6</span>קומפוסט לערוגות חדשות</h2>
+  <div class="panel compost">
+    <label class="f">שיטת הקמה<select id="cMethod">
+      <option value="deep">חיפוי קומפוסט עמוק (10–15 ס״מ)</option>
+      <option value="nodig">נו-דיג עם קרטון (15–20 ס״מ)</option>
+      <option value="classic">קלאסית, ערבוב (25 ל׳ למ״ר)</option>
+    </select></label>
+    <div><div class="hint" style="margin:0">שטח ערוגות</div><div class="big" id="cArea">0 מ״ר</div></div>
+    <div><div class="hint" style="margin:0">קומפוסט דרוש</div><div class="big" id="cLit">0 ל׳</div></div>
+  </div>
+  <p class="hint" id="cNote"></p>
+</section>
+
+<footer>
+  נתוני הגידול לקוחים מחומרי הקורס "גן הירק היצרני". נתונים המסומנים ≈ הם הערכה שעוד לא אושרה בקורס. התכנון נשמר רק בדפדפן שלכם.
+</footer>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+// ---------- crop data (course material; est = fields that are estimates) ----------
+const FAM = {
+  umb:{n:'סוככיים',c:'--f-umb'}, cru:{n:'מצליבים',c:'--f-cru'}, bet:{n:'סלקיים',c:'--f-bet'},
+  com:{n:'מורכבים',c:'--f-com'}, all:{n:'שומיים',c:'--f-all'}, leg:{n:'פרפרניים',c:'--f-leg'}
+};
+// t: s=single, c=cuts, k=continuous. m: p=transplant, d=direct sow.
+// r=rows in 80cm, sp=cm in row, ppu=plants per unit, cuts, L=weeks to first harvest, M=weeks in bed, I=interval wks, N=plantings/season
+const CROPS = [
+ {id:'parsley',n:'פטרוזיליה',f:'umb',u:'צרור',t:'c',m:'p',r:4,sp:20,ppu:2,cuts:4,L:6,M:14,I:8,d:1},
+ {id:'cilantro',n:'כוסברה',f:'umb',u:'צרור',t:'c',m:'p',r:4,sp:20,ppu:3,cuts:2.5,L:5,M:9,I:3,d:1,est:1},
+ {id:'dill',n:'שמיר',f:'umb',u:'צרור',t:'c',m:'p',r:4,sp:20,ppu:3,cuts:2.5,L:5,M:9,I:3,d:1,est:1},
+ {id:'fennel',n:'שומר',f:'umb',u:'יחידות',t:'s',m:'p',r:4,sp:20,ppu:1,L:9,M:9,I:3,d:2},
+ {id:'carrot',n:'גזר',f:'umb',u:'צרור',t:'s',m:'d',r:4,sp:20,ppu:3,L:10,M:10,I:3,d:1,est:1},
+ {id:'celery',n:'סלרי עלים',f:'umb',u:'צרור',t:'k',m:'p',r:3,sp:20,ppu:3,L:8,N:2,d:0,est:1},
+ {id:'rocket',n:'רוקט',f:'cru',u:'צרור',t:'c',m:'p',r:4,sp:20,ppu:4,cuts:3,L:3.5,M:8,I:3,d:1,est:1},
+ {id:'mizuna',n:'מיזונה',f:'cru',u:'צרור',t:'c',m:'p',r:4,sp:20,ppu:2,cuts:3,L:4,M:8,I:3,d:0,est:1},
+ {id:'radish',n:'צנונית',f:'cru',u:'צרור',t:'s',m:'d',r:4,sp:20,ppu:1.5,L:3.5,M:4,I:2,d:1},
+ {id:'turnip',n:'לפת לבנה',f:'cru',u:'צרור',t:'s',m:'d',r:4,sp:20,ppu:1.5,L:6,M:6,I:2,d:0,est:1},
+ {id:'kohlrabi',n:'קולורבי',f:'cru',u:'יחידות',t:'s',m:'p',r:4,sp:20,ppu:1,L:7,M:7,I:2,d:2},
+ {id:'bokchoy',n:'באק צוי',f:'cru',u:'ראשים',t:'s',m:'p',r:3,sp:20,ppu:1,L:4,M:4,I:2,d:1},
+ {id:'kale',n:'קייל',f:'cru',u:'צרור',t:'k',m:'p',r:2,sp:40,ppu:2,L:6,N:1,d:1,est:1},
+ {id:'cabbage',n:'כרוב',f:'cru',u:'ראשים',t:'s',m:'p',r:3,sp:40,ppu:1,L:10,M:10,I:3,d:0},
+ {id:'cauli',n:'כרובית',f:'cru',u:'ראשים',t:'s',m:'p',r:2,sp:40,ppu:1,L:10,M:10,I:2,d:0},
+ {id:'broccoli',n:'ברוקולי',f:'cru',u:'ראשים',t:'s',m:'p',r:2,sp:40,ppu:1,L:10,M:10,I:2,d:0},
+ {id:'beet',n:'סלק',f:'bet',u:'יחידות',t:'s',m:'p',r:4,sp:20,ppu:1,L:7,M:7,I:2,d:3},
+ {id:'chard',n:'מנגולד',f:'bet',u:'צרורות',t:'k',m:'p',r:2,sp:40,ppu:2,L:5,N:1,d:1},
+ {id:'spinach',n:'תרד',f:'bet',u:'צרור',t:'k',m:'p',r:3,sp:20,ppu:3,L:6,N:2,d:1,est:1},
+ {id:'lettuce',n:'חסה ערבית',f:'com',u:'ראשים',t:'s',m:'p',r:3,sp:20,ppu:1,L:4,M:4,I:2,d:1},
+ {id:'lettuce2',n:'חסה קטנה',f:'com',u:'ראשים',t:'s',m:'p',r:4,sp:20,ppu:1,L:4,M:4,I:2,d:2},
+ {id:'scallion',n:'בצל ירוק',f:'all',u:'צרור',t:'k',m:'p',r:3,sp:20,ppu:3,L:7,N:2,d:1,est:1},
+ {id:'leek',n:'כרישה',f:'all',u:'יחידות',t:'k',m:'p',r:6,sp:10,ppu:15,L:16,N:1,d:0,est:1},
+ {id:'pea',n:'אפונת שלג',f:'leg',u:'סלסלות',t:'k',m:'p',r:1,sp:20,ppu:5,L:10,N:2,d:0,est:1},
+];
+const TYPE = {s:'קטיף בודד',c:'כמה חיתוכים',k:'קטיף מתמשך'};
+
+
+// ---------- vegetable drawings (32x32) ----------
+const G='#4f9a3c', G2='#2f7a2c', LG='#9ccc5a';
+const leafy=(c=G,c2=G2)=>`<path d="M16 29V14" stroke="${c2}" stroke-width="1.6"/><path d="M16 18c-6-1-9-6-8-12 5 1 8 5 8 12zM16 16c5-1 8-6 7-12-5 1-7 5-7 12zM16 22c-6 0-10-3-11-8 5-1 9 2 11 8zM16 22c6 0 10-3 11-8-5-1-9 2-11 8z" fill="${c}"/>`;
+const herb=(c=G)=>`<g stroke="${G2}" stroke-width="1.2" fill="none"><path d="M16 30V12M16 22l-6-8M16 20l6-8M16 26l-8-4M16 25l8-5"/></g><g fill="${c}"><circle cx="16" cy="10" r="3.2"/><circle cx="9.5" cy="12.5" r="3"/><circle cx="22.5" cy="11" r="3"/><circle cx="7" cy="21.5" r="2.6"/><circle cx="25" cy="19.5" r="2.6"/><circle cx="12.5" cy="6.5" r="2.4"/><circle cx="19.5" cy="6.5" r="2.4"/></g>`;
+const feathery=(c=G)=>`<g stroke="${c}" stroke-width="1.1" fill="none"><path d="M16 22V4M16 8l-5-4M16 8l5-4M16 12l-7-4M16 12l7-4M16 16l-8-3M16 16l8-3M13 20l-6-1M19 20l6-1"/></g>`;
+const ICONS={
+ parsley:herb('#3f8f32'),
+ cilantro:herb('#62a83e'),
+ rocket:`<g fill="#3d7f34"><path d="M16 30c-1-6-5-8-8-14 3 0 6 2 8 6 0-6-4-10-3-17 3 4 4 9 3 15 1-5 4-11 8-13 0 5-3 10-7 14 3-3 6-4 9-3-3 4-6 6-10 12z"/></g>`,
+ mizuna:feathery('#4f9a3c'),
+ dill:feathery('#7bb04a')+`<path d="M16 22v8" stroke="#5a8a34" stroke-width="1.4"/>`,
+ fennel:feathery('#7bb04a')+`<path d="M8 25c0-5 4-7 8-7s8 2 8 7-4 5-8 5-8 0-8-5z" fill="#eef2d6" stroke="#b9c48a"/><path d="M13 19v10M19 19v10" stroke="#c9d39c"/>`,
+ carrot:`<path d="M14 5c-2-1-5 0-6 1 3 0 5 1 6 3zM18 5c2-1 5 0 6 1-3 0-5 1-6 3zM16 3v6" stroke="#3f8f32" stroke-width="2" fill="#3f8f32"/><path d="M11 10h10l-4 20h-2z" fill="#ec7a1c"/><path d="M13 15h3M14 20h3M15 25h2" stroke="#b9560e" stroke-width="1"/>`,
+ celery:`<g fill="#9cc96a" stroke="#6f9e3f" stroke-width=".8"><path d="M10 30l1-16h3l-1 16zM14.5 30l.5-18h3l.5 18zM19 30l-1-16h3l1 16z"/></g><g fill="#4f9a3c"><circle cx="12" cy="11" r="3"/><circle cx="16.5" cy="8" r="3.4"/><circle cx="21" cy="11" r="3"/></g>`,
+ radish:leafy()+`<circle cx="16" cy="23" r="6" fill="#d8344c"/><path d="M16 29v3" stroke="#f3e6e6" stroke-width="1.4"/><path d="M12 25a5 5 0 0 0 8 0" fill="#f6dfe3"/>`,
+ turnip:leafy()+`<circle cx="16" cy="23" r="6.5" fill="#f3efe6" stroke="#cfc6b4"/><path d="M10 21a6.5 6.5 0 0 1 12 0z" fill="#9b5fb4"/><path d="M16 29.5v2.5" stroke="#cfc6b4" stroke-width="1.4"/>`,
+ beet:`<path d="M16 17V6M16 13c-4-2-7-6-6-10 4 1 6 5 6 10zM16 13c4-2 7-6 6-10-4 1-6 5-6 10z" fill="#4f9a3c" stroke="#9e2459" stroke-width="1.2"/><circle cx="16" cy="22" r="7" fill="#8e1f4f"/><path d="M16 29v3" stroke="#8e1f4f" stroke-width="1.4"/>`,
+ kohlrabi:`<path d="M10 18l-5-8M22 18l5-8M14 15l-2-9M18 15l2-9" stroke="#7fae4a" stroke-width="1.6"/><g fill="#4f9a3c"><ellipse cx="5" cy="9" rx="3" ry="2.2"/><ellipse cx="27" cy="9" rx="3" ry="2.2"/><ellipse cx="12" cy="5" rx="2.4" ry="2"/><ellipse cx="20" cy="5" rx="2.4" ry="2"/></g><circle cx="16" cy="22" r="8" fill="#b8d97a"/><path d="M11 20c3 2 7 2 10 0" stroke="#8fb85a" fill="none"/>`,
+ bokchoy:`<g><path d="M11 30c-2-6-2-14 1-22 2 6 3 14 1 22z" fill="#eef4dc" stroke="#b9cf8e"/><path d="M21 30c2-6 2-14-1-22-2 6-3 14-1 22z" fill="#eef4dc" stroke="#b9cf8e"/><path d="M16 30c-1-8-1-16 0-24 1 8 1 16 0 24z" fill="#eef4dc"/><ellipse cx="11" cy="8" rx="4.5" ry="6" fill="#3f8f32"/><ellipse cx="21" cy="8" rx="4.5" ry="6" fill="#3f8f32"/><ellipse cx="16" cy="6" rx="4" ry="5" fill="#55a43e"/></g>`,
+ kale:`<path d="M16 31V10" stroke="#2c5f3a" stroke-width="1.6"/><path d="M16 4c-4 2-7 6-7 11 0 4 3 7 7 9 4-2 7-5 7-9 0-5-3-9-7-11z" fill="#2f6b45"/><path d="M9 9l-2 1 2 1-2 2 2 1-2 2 2 1M23 9l2 1-2 1 2 2-2 1 2 2-2 1" stroke="#2f6b45" stroke-width="2" fill="none"/><path d="M16 8v14M16 13l-4-3M16 13l4-3M16 18l-4-3M16 18l4-3" stroke="#6fa07e" stroke-width=".9"/>`,
+ cabbage:`<circle cx="16" cy="17" r="12" fill="#8fc46a"/><circle cx="16" cy="17" r="8.5" fill="#b7dc8f"/><path d="M16 9c-3 3-3 13 0 16M10 12c3 2 5 6 5 11M22 12c-3 2-5 6-5 11" stroke="#7fb15a" fill="none"/>`,
+ cauli:`<path d="M5 22c2 6 8 8 11 8s9-2 11-8c-4 2-8 2-11 2s-7 0-11-2z" fill="#4f9a3c"/><g fill="#f4efdc" stroke="#d9cfae" stroke-width=".6"><circle cx="11" cy="15" r="5"/><circle cx="21" cy="15" r="5"/><circle cx="16" cy="11" r="5.5"/><circle cx="16" cy="18" r="5"/><circle cx="8" cy="20" r="3.5"/><circle cx="24" cy="20" r="3.5"/></g>`,
+ broccoli:`<path d="M13 30l1-10h4l1 10z" fill="#7fae4a"/><g fill="#2f7a3a"><circle cx="10" cy="15" r="5"/><circle cx="22" cy="15" r="5"/><circle cx="16" cy="10" r="5.5"/><circle cx="16" cy="17" r="4.5"/></g><g fill="#3f9a4a"><circle cx="9" cy="13" r="1.2"/><circle cx="15" cy="8" r="1.4"/><circle cx="22" cy="13" r="1.2"/><circle cx="17" cy="16" r="1.1"/></g>`,
+ chard:`<path d="M12 31c0-8 1-14 2-20M20 31c0-8-1-14-2-20" stroke="#d6336c" stroke-width="2.2"/><path d="M14 13c-6-1-9-5-8-11 5 0 8 4 8 11z" fill="#3f8f32"/><path d="M18 13c6-1 9-5 8-11-5 0-8 4-8 11z" fill="#4f9a3c"/><path d="M7 5l6 7M25 5l-6 7" stroke="#d6336c" stroke-width=".9"/>`,
+ spinach:`<path d="M16 31V18" stroke="#2f7a2c" stroke-width="1.6"/><path d="M16 22c-7 0-12-5-11-13 6 0 11 5 11 13zM16 20c7 0 12-5 11-13-6 0-11 5-11 13zM16 18c-3-4-3-10 0-15 3 5 3 11 0 15z" fill="#2f7a2c"/><path d="M6 10l9 10M26 8l-9 10" stroke="#5aa64a" stroke-width=".8"/>`,
+ lettuce:`<path d="M16 30c-6 0-11-3-11-9 0-7 5-13 11-15 6 2 11 8 11 15 0 6-5 9-11 9z" fill="#8cc63f"/><path d="M16 30c-3 0-6-2-6-6 0-5 3-10 6-12 3 2 6 7 6 12 0 4-3 6-6 6z" fill="#b5dc6a"/><path d="M16 12v18" stroke="#e5f2c4" stroke-width="1.2"/>`,
+ lettuce2:`<circle cx="16" cy="18" r="11" fill="#7a2e4a"/><circle cx="16" cy="18" r="8" fill="#9bc75a"/><path d="M8 13c2 1 4 0 5-2M24 13c-2 1-4 0-5-2M7 20c2 0 3 1 4 3M25 20c-2 0-3 1-4 3" stroke="#5a1f35" fill="none"/><circle cx="16" cy="18" r="4" fill="#c4e08a"/>`,
+ scallion:`<path d="M12 4l1 18M16 2v20M20 4l-1 18" stroke="#3f8f32" stroke-width="2.6" stroke-linecap="round"/><path d="M12 22h8l-1 6h-6z" fill="#f2f0e2" stroke="#d2cfb4"/><path d="M14 28l-1 3M16 28v3M18 28l1 3" stroke="#d2cfb4"/>`,
+ leek:`<path d="M13 16L7 3M16 15V2M19 16l6-13" stroke="#2f6b45" stroke-width="3" stroke-linecap="round"/><rect x="12" y="14" width="8" height="15" rx="3" fill="#eef1dc" stroke="#cfd3b0"/><path d="M12 18h8" stroke="#b8d48a" stroke-width="2"/><path d="M14 29l-1 2M16 29v2.5M18 29l1 2" stroke="#cfd3b0"/>`,
+ pea:`<path d="M5 22c4-10 14-16 22-16-2 9-10 18-20 20z" fill="#6cb33f"/><g fill="#a6d96a" stroke="#5a9a34" stroke-width=".6"><circle cx="11" cy="19.5" r="2.4"/><circle cx="15.5" cy="15.5" r="2.4"/><circle cx="20" cy="11.5" r="2.4"/></g><path d="M27 6c1-2 3-3 4-2" stroke="#4f8a2c" fill="none"/>`,
+};
+function icon(id){return `<svg class="ic" viewBox="0 0 32 32" aria-hidden="true">${ICONS[id]||herb()}</svg>`}
+
+
+// ---------- around the garden: perennials and winter flowers (not in bed math) ----------
+const flower=(p,c,n=8,r=7)=>{let h='';for(let i=0;i<n;i++){const a=i*2*Math.PI/n;h+=`<ellipse cx="${16+Math.cos(a)*r}" cy="${14+Math.sin(a)*r}" rx="4.6" ry="3" transform="rotate(${a*180/Math.PI} ${16+Math.cos(a)*r} ${14+Math.sin(a)*r})" fill="${p}"/>`}return `<path d="M16 22v9" stroke="#4f8a2c" stroke-width="1.6"/><path d="M16 27c-3-2-6-2-8 0 3 1 6 1 8 0z" fill="#5a9a34"/>`+h+`<circle cx="16" cy="14" r="${r*0.55}" fill="${c}"/>`};
+const sprig=(c,leaf='ellipse')=>`<path d="M16 31V4" stroke="#6b7d4a" stroke-width="1.3"/>`+[6,11,16,21,26].map((y,i)=>`<ellipse cx="${i%2?20:12}" cy="${y}" rx="4" ry="2.2" fill="${c}" transform="rotate(${i%2?-30:30} ${i%2?20:12} ${y})"/>`).join('');
+Object.assign(ICONS,{
+ artichoke:`<path d="M16 31v-7" stroke="#6f8f55" stroke-width="2"/><path d="M16 4c5 3 8 8 8 13 0 4-3 7-8 7s-8-3-8-7c0-5 3-10 8-13z" fill="#6f9a6a"/><path d="M9 14c3 1 5 3 7 6 2-3 4-5 7-6M10 9c2 1 4 3 6 6 2-3 4-5 6-6M16 4v6" stroke="#4d7a4a" fill="none" stroke-width="1.1"/><path d="M13 5c1-2 5-2 6 0" stroke="#8a5fa8" stroke-width="1.6" fill="none"/>`,
+ sage:sprig('#93a98a'), rosemary:`<path d="M16 31V3" stroke="#6b5a3a" stroke-width="1.3"/>`+Array.from({length:12},(_,i)=>`<path d="M16 ${5+i*2.2}l${i%2?6:-6} -2" stroke="#4f7a5a" stroke-width="1.6" stroke-linecap="round"/>`).join(''),
+ oregano:sprig('#5f9a4a'), thyme:`<path d="M10 31c2-8 4-16 6-26M22 31c-2-8-4-16-6-26" stroke="#6b7d4a" stroke-width="1"/>`+Array.from({length:10},(_,i)=>`<circle cx="${i%2?18+i*.2:14-i*.2}" cy="${6+i*2.4}" r="1.5" fill="#6f9a52"/>`).join(''),
+ mint:sprig('#3fae5a'),
+ calendula:flower('#f29b1f','#c45a0f',12,7), nasturtium:`<circle cx="9" cy="22" r="5.5" fill="#6aa84f"/><circle cx="9" cy="22" r="1" fill="#a8d08d"/>`+flower('#e8501c','#f5c02a',5,6),
+ viola:flower('#6a3fa0','#f5d02a',5,6), alyssum:[[10,12],[18,9],[22,16],[13,19],[17,14]].map(([x,y])=>`<g>${[0,1,2,3].map(i=>`<circle cx="${x+[2,-2,0,0][i]}" cy="${y+[0,0,2,-2][i]}" r="1.8" fill="#f4f1ff" stroke="#c9c0e6" stroke-width=".4"/>`).join('')}</g>`).join('')+`<path d="M16 22v9" stroke="#4f8a2c" stroke-width="1.4"/>`,
+ borage:flower('#3d6fd1','#1a2a5a',5,6), cornflower:flower('#2f5fd0','#20307a',14,7), sweetpea:`<path d="M16 31V14" stroke="#4f8a2c" stroke-width="1.4"/><path d="M20 14c4-2 6 2 6 2" stroke="#4f8a2c" fill="none"/>`+`<path d="M16 15c-7 0-9-6-6-9 3-2 5 1 6 4 1-3 3-6 6-4 3 3 1 9-6 9z" fill="#e57fb5"/><path d="M16 15c-3-1-4-4-2-6 1 2 2 4 2 6z" fill="#c4498b"/>`
+});
+const PER=[
+ {id:'artichoke',n:'ארטישוק',u:'צמחים',kind:'per',L:16,months:[2,3,4,5],d:2,why:'רב-שנתי. כמטר בין צמחים',
+  how:'חותכים קרקפת סגורה והדוקה עם 3–5 ס״מ גבעול, לפני שהעלים החיצוניים נפתחים. בקיץ הצמח מתייבש, חותכים לגובה הקרקע והוא חוזר בסתיו.'},
+ {id:'sage',n:'מרווה',u:'צמחים',kind:'per',L:8,months:null,d:1,why:'רב-שנתי, אוהב שמש ומעט מים',how:'קוטפים ענפים צעירים לפי הצורך, לא יותר משליש מהצמח בפעם אחת.'},
+ {id:'rosemary',n:'רוזמרין',u:'צמחים',kind:'per',L:10,months:null,d:0,why:'רב-שנתי, שיח גדול',how:'גוזמים קצות ענפים לפי הצורך. גיזום קבוע שומר על שיח צפוף.'},
+ {id:'oregano',n:'אורגנו (זעתר)',u:'צמחים',kind:'per',L:8,months:null,d:1,why:'רב-שנתי',how:'חותכים ענפים מעל זוג עלים, והצמח מסתעף.'},
+ {id:'thyme',n:'קורנית / טימין',u:'צמחים',kind:'per',L:8,months:null,d:0,why:'רב-שנתי, כיסוי קרקע נמוך',how:'גוזמים קצות ענפים רכים. לא חותכים לתוך העץ.'},
+ {id:'mint',n:'נענע',u:'צמחים',kind:'per',L:6,months:null,d:0,why:'רק בעציץ, מתפשטת מאוד',how:'קוטפים קצות ענפים, וזה מעודד צמיחה צפופה.'},
+ {id:'calendula',n:'ציפורני חתול',u:'צמחים',kind:'fl',L:8,months:[12,1,2,3,4,5],d:3,why:'פרחים אכילים, מושך חרקים מועילים',how:'קוטפים פרחים פתוחים. קטיף שוטף מעודד עוד פריחה.'},
+ {id:'nasturtium',n:'כובע הנזיר',u:'צמחים',kind:'fl',L:8,months:[1,2,3,4,5],d:2,why:'עלים ופרחים אכילים, מושך כנימות הרחק מהירקות',how:'קוטפים עלים צעירים ופרחים לסלט.'},
+ {id:'viola',n:'אמנון ותמר',u:'צמחים',kind:'fl',L:6,months:[12,1,2,3,4],d:0,why:'פרחים אכילים לקישוט',how:'קוטפים פרחים פתוחים בבוקר.'},
+ {id:'alyssum',n:'לובולריה (אליסום)',u:'צמחים',kind:'fl',L:6,months:[12,1,2,3,4,5],d:4,why:'מושך רחפים שאוכלים כנימות',how:'לא קוטפים. גוזמים קלות כשהפריחה דועכת והיא תפרח שוב.'},
+ {id:'borage',n:'בוראגו',u:'צמחים',kind:'fl',L:8,months:[2,3,4,5],d:0,why:'מושך דבורים, פרחים כחולים אכילים. מזריע את עצמו',how:'קוטפים פרחים פתוחים ומורידים את החלק הירוק.'},
+ {id:'cornflower',n:'דגנייה כחולה',u:'צמחים',kind:'fl',L:10,months:[3,4,5],d:0,why:'מושך מאביקים',how:'קוטפים פרחים לאגרטל. קטיף מעודד פריחה נוספת.'},
+ {id:'sweetpea',n:'טופח ריחני',u:'צמחים',kind:'fl',L:12,months:[3,4,5],d:0,why:'מטפס על רשת, פרחי ריח. לא אכיל!',how:'קוטפים פרחים לאגרטל כל כמה ימים, אחרת הפריחה נעצרת.'},
+];
+function perActive(P,w){
+  const out=[]; const d=addW(P.start,w), m=d.getMonth()+1;
+  for(const x of PER){const q=+(S.per[x.id]||0); if(!q) continue; if(w<x.L) continue; if(x.months&&!x.months.includes(m)) continue; out.push({x,q,first:w===x.L||(x.months&&x.months.includes(m)&&!x.months.includes(addW(P.start,w-1).getMonth()+1)&&w-1>=x.L)})}
+  return out;
+}
+
+// ---------- state ----------
+const KEY='garden-planner-v1';
+function today(){const d=new Date();d.setHours(0,0,0,0);return d}
+function iso(d){return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)}
+function defaultState(sample){
+  const t=today(); const endY=t.getMonth()>=6?t.getFullYear()+1:t.getFullYear();
+  const qty={}; CROPS.forEach(c=>qty[c.id]=sample?c.d:0);
+  const per={}; PER.forEach(x=>per[x.id]=sample?x.d:0);
+  return {name:'',start:iso(t),end:endY+'-05-15',groups:[{n:6,len:3,wid:80}],rhythm:2,qty,per,done:{},cm:'deep'};
+}
+let S;
+try{S=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){S=null}
+if(!S||!S.qty){S=defaultState(true)}
+if(!S.per){S.per={}}
+if(!S.groups){S.groups=[{n:+S.beds||6,len:+S.len||3,wid:+S.wid||80}]}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+
+// ---------- model ----------
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const r1=x=>Math.round(x*10)/10;
+function fmtD(d){return d.toLocaleDateString('he-IL',{day:'numeric',month:'numeric'})}
+function addW(d,w){const x=new Date(d);x.setDate(x.getDate()+Math.round(w*7));return x}
+
+function plan(){
+  const start=new Date(S.start+'T00:00'), end=new Date(S.end+'T00:00');
+  const SW=Math.max(0,Math.floor((end-start)/864e5/7));
+  const R=Math.max(1,+S.rhythm||1);
+  const rows=[];
+  for(const c of CROPS){
+    const D=+S.qty[c.id]||0; if(D<=0) continue;
+    const I=c.t==='k'?Math.max(R,Math.ceil(SW/c.N/R)*R):Math.max(R,Math.floor(c.I/R)*R);
+    const P=c.t==='k'?Math.ceil(D*c.ppu):Math.ceil(D*c.ppu*I/(c.t==='c'?c.cuts:1));
+    // rounds that share the bed at once: a round is harvested over I weeks, and its spot is replanted in the week of its last harvest
+    const slots=c.t==='k'?Math.min(c.N,2):(c.t==='s'?Math.ceil((c.L-1)/I)+1:Math.ceil(c.M/I));
+    let W=0; if(SW-c.L>=0){W=Math.floor((SW-c.L)/I)+1; if(c.t==='k')W=Math.min(c.N,W)}
+    const pulses=[];
+    for(let k=0;k<W;k++){
+      const wk=k*I, hs=wk+c.L;
+      const he=c.t==='k'?(k<W-1?(k+1)*I+c.L-1:SW):(c.t==='s'?hs+I-1:wk+c.M-1);
+      pulses.push({k,wk,date:addW(start,wk),slot:k%slots,hs,he});
+    }
+    rows.push({c,D,I,P,slots,W,pulses});
+  }
+  return {rows,SW,start,end};
+}
+
+function geo(c,wid){/* rows may sit up to 10% closer than the course spacing, except for crops that need room */const nRows=Math.max(1,Math.floor(c.r*wid/(ROOMY.has(c.id)?80:72)+1e-9));const ppm=nRows*100/c.sp;return {nRows,ppm}}
+function bedList(){const out=[];for(const g of S.groups){const n=Math.max(0,Math.min(60,+g.n|0));for(let i=0;i<n;i++)out.push({len:Math.max(.3,+g.len||3),wid:Math.max(20,+g.wid||80)})}return out.length?out:[{len:3,wid:80}]}
+// pack slots into beds (grouped by family for rotation)
+// crops that need their full spacing: get the widest beds first and are never squeezed
+const ROOMY=new Set(['fennel','cabbage','cauli','broccoli','kale','chard','lettuce','kohlrabi']);
+const SEG=0.05; // bed length is tracked in 5 cm steps
+function busyUntil(r,p){return r.c.t==='s'?Math.ceil(p.he):Math.floor(p.he)+1}
+// Week-by-week placement: every planting takes a free stretch of bed, preferring soil last used by another family.
+function pack(rows,SW){
+  const list=bedList(), nb=list.length;
+  const beds=list.map(d=>({len:d.len,wid:d.wid,extra:false,segs:Array.from({length:Math.max(1,Math.round(d.len/SEG))},()=>({until:0,fam:null,crop:null,pl:null}))}));
+  const rankWide=[...beds.keys()].sort((x,y)=>beds[y].wid-beds[x].wid||x-y);
+  const rankNarrow=[...beds.keys()].sort((x,y)=>beds[x].wid-beds[y].wid||x-y);
+  const events=[]; rows.forEach(r=>r.pulses.forEach(p=>events.push({r,p})));
+  const segsFor=(c,P,wid)=>Math.max(1,Math.ceil(P/geo(c,wid).ppm/SEG-1e-9));
+  events.sort((a,b)=>a.p.wk-b.p.wk||(ROOMY.has(b.r.c.id)-ROOMY.has(a.r.c.id))||(b.r.P/geo(b.r.c,80).ppm)-(a.r.P/geo(a.r.c,80).ppm));
+  const places=[], byPulse={};
+  let overflow=0;
+  for(const {r,p} of events){
+    const c=r.c, w=p.wk, roomy=ROOMY.has(c.id), order=roomy?rankWide:rankNarrow;
+    let best=null;
+    order.forEach((bi,rank)=>{
+      const b=beds[bi]; const n=segsFor(c,r.P,b.wid); const L=b.segs.length; if(n>L) return;
+      let run=0;
+      for(let i=0;i<L;i++){
+        run=b.segs[i].until<=w?run+1:0;
+        if(run>=n){
+          const st=i-n+1; let same=0,crop=0,used=0;
+          for(let j=st;j<=i;j++){const g=b.segs[j]; if(g.fam){used++; if(g.fam===c.f) same++; if(g.crop===c.id) crop++}}
+          // keep plantings of the same crop side by side, and fill next to busy soil before opening empty stretches
+          const L1=b.segs[st-1], R1=b.segs[i+1];
+          const near=[L1,R1].filter(x=>x&&x.until>w&&x.pl);
+          const adjCrop=near.some(x=>x.crop===c.id)?1:0, adjAny=near.length?1:(st===0?0.5:0);
+          const score=same*100+crop*50+rank*4-adjCrop*12-adjAny*3+(used?0:1)+st*0.01;
+          if(!best||score<best.score) best={score,bi,st,n,same,used};
+        }
+      }
+    });
+    if(!best){
+      overflow++;
+      const d=beds[order[0]]; const b={len:d.len,wid:d.wid,extra:true,segs:Array.from({length:d.segs.length},()=>({until:0,fam:null,crop:null,pl:null}))};
+      beds.push(b); rankWide.push(beds.length-1); rankNarrow.push(beds.length-1);
+      best={bi:beds.length-1,st:0,n:Math.min(b.segs.length,segsFor(c,r.P,b.wid)),same:0,used:0};
+    }
+    const b=beds[best.bi], g=geo(c,b.wid);
+    const prevFams=[...new Set(b.segs.slice(best.st,best.st+best.n).map(x=>x.fam).filter(Boolean))];
+    const prevPl=[...new Set(b.segs.slice(best.st,best.st+best.n).map(x=>x.pl).filter(Boolean))];
+    const pl={r,p,bed:best.bi,st:best.st,n:best.n,nRows:g.nRows,plants:r.P,until:busyUntil(r,p),prevFams,prevPl,next:[],sameFam:prevFams.includes(c.f)};
+    prevPl.forEach(q=>q.next.push(pl));
+    for(let j=best.st;j<best.st+best.n;j++) Object.assign(b.segs[j],{until:pl.until,fam:c.f,crop:c.id,pl});
+    places.push(pl); byPulse[c.id+':'+p.k]=pl;
+  }
+  // peak bed use across the season
+  let need=0, peakW=0;
+  for(let w=0;w<=SW;w++){let m=0; for(const pl of places) if(pl.p.wk<=w&&w<pl.until) m+=pl.n*SEG; if(m>need){need=m;peakW=w}}
+  const famLen={}; for(const pl of places) if(pl.p.wk<=peakW&&peakW<pl.until) famLen[pl.r.c.f]=(famLen[pl.r.c.f]||0)+pl.n*SEG;
+  const replants=places.filter(pl=>pl.prevFams.length), rotated=replants.filter(pl=>!pl.sameFam);
+  const have=list.reduce((a,d)=>a+d.len,0), area=list.reduce((a,d)=>a+d.len*d.wid/100,0), maxLen=Math.max(...beds.map(x=>x.len));
+  return {beds,nb,places,byPulse,need,have,area,maxLen,famLen,overflow,replants:replants.length,rotated:rotated.length};
+}
+const where=(K,pl)=>pl?`ערוגה ${pl.bed+1} · ${Math.round(pl.st*SEG*100)}–${Math.round((pl.st+pl.n)*SEG*100)} ס״מ`:'';
+
+// ---------- render ----------
+const $=id=>document.getElementById(id);
+const INPUTS={gName:'name',gStart:'start',gEnd:'end',gRhythm:'rhythm',cMethod:'cm'};
+function fillInputs(){for(const [id,k] of Object.entries(INPUTS)) $(id).value=S[k]; renderGroups()}
+function renderGroups(){
+  const box=$('groups'); box.innerHTML='';
+  S.groups.forEach((g,i)=>{
+    const row=document.createElement('div'); row.className='g-row';
+    row.innerHTML=`<input type="number" id="gn${i}" min="0" max="60" step="1" value="${g.n}" aria-label="מספר ערוגות">
+      <input type="number" id="gl${i}" min="0.3" max="30" step="0.1" value="${g.len}" aria-label="אורך במטרים">
+      <input type="number" id="gw${i}" min="20" max="200" step="1" value="${g.wid}" aria-label="רוחב בס״מ">
+      <button type="button" class="del" aria-label="מחק שורה" ${S.groups.length<2?'disabled':''}>×</button>`;
+    const [n,l,w]=row.querySelectorAll('input');
+    const upd=()=>{const vn=parseInt(n.value),vl=parseFloat(l.value),vw=parseFloat(w.value); if(vn>=0)g.n=vn; if(vl>0)g.len=vl; if(vw>0)g.wid=vw; save(); render()};
+    [n,l,w].forEach(x=>x.addEventListener('input',upd));
+    row.querySelector('.del').addEventListener('click',()=>{S.groups.splice(i,1);save();renderGroups();render()});
+    box.appendChild(row);
+  });
+}
+function bindInputs(){
+  $('addGroup').addEventListener('click',()=>{const lastG=S.groups[S.groups.length-1]||{len:3,wid:80};S.groups.push({n:1,len:lastG.len,wid:lastG.wid});save();renderGroups();render();$('gn'+(S.groups.length-1)).focus()});
+  for(const [id,k] of Object.entries(INPUTS)){
+    const el=$(id);
+    el.addEventListener('input',()=>{
+      let v=el.value; if(el.type==='number'){v=parseFloat(v); if(!(v>0))return}
+      S[k]=v; save(); render(false);
+    });
+  }
+}
+function renderCrops(){
+  const box=$('cropList'); box.innerHTML='';
+  for(const fk of Object.keys(FAM)){
+    const list=CROPS.filter(c=>c.f===fk); if(!list.length)continue;
+    const fam=document.createElement('div'); fam.className='fam';
+    fam.innerHTML=`<div class="fam-h"><span class="sw" style="background:var(${FAM[fk].c})"></span>${FAM[fk].n}</div><div class="crops"></div>`;
+    const g=fam.querySelector('.crops');
+    for(const c of list){
+      const q=S.qty[c.id]||0;
+      const d=document.createElement('div'); d.className='crop'+(q>0?' on':''); d.dataset.id=c.id;
+      d.title=`${TYPE[c.t]} · ${c.m==='d'?'זריעה ישירה':'שתיל'} · ${c.L} שבועות לקטיף`;
+      d.innerHTML=`${icon(c.id)}<div style="min-width:0"><div class="nm">${c.n}${c.est?'<span class="est" title="חלק מהנתונים לירק הזה הם הערכה שעוד לא אושרה בקורס">≈</span>':''}</div>
+        <div class="unit">${c.u} בשבוע · ${c.m==='d'?'זריעה':'שתיל'}</div></div>
+        <div class="step"><button type="button" aria-label="פחות ${c.n}" data-d="-1">−</button><output>${q}</output><button type="button" aria-label="עוד ${c.n}" data-d="1">+</button></div>`;
+      d.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+        S.qty[c.id]=Math.max(0,Math.min(30,(S.qty[c.id]||0)+(+b.dataset.d)));
+        save(); d.querySelector('output').textContent=S.qty[c.id]; d.classList.toggle('on',S.qty[c.id]>0); render(false);
+      }));
+      g.appendChild(d);
+    }
+    box.appendChild(fam);
+  }
+}
+
+function renderPer(){
+  const box=$('perList'); box.innerHTML='';
+  const g=document.createElement('div'); g.className='crops'; box.appendChild(g);
+  for(const x of PER){
+    const q=S.per[x.id]||0;
+    const d=document.createElement('div'); d.className='crop'+(q>0?' on':'');
+    d.innerHTML=`${icon(x.id)}<div style="min-width:0"><div class="nm">${x.n}</div><div class="why">${x.why}</div></div>
+      <div class="step"><button type="button" aria-label="פחות ${x.n}" data-d="-1">−</button><output>${q}</output><button type="button" aria-label="עוד ${x.n}" data-d="1">+</button></div>`;
+    d.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+      S.per[x.id]=Math.max(0,Math.min(20,(S.per[x.id]||0)+(+b.dataset.d))); save();
+      d.querySelector('output').textContent=S.per[x.id]; d.classList.toggle('on',S.per[x.id]>0); render();
+    }));
+    g.appendChild(d);
+  }
+}
+let selected=null;
+let mapWeek=null;
+function render(){
+  const P=plan(); const K=pack(P.rows,P.SW);
+  const fits=!K.overflow;
+  const dates=new Set(); P.rows.forEach(r=>r.pulses.forEach(p=>dates.add(p.wk)));
+  $('capNeed').textContent=r1(K.need); $('capHave').textContent=r1(K.have); $('capDays').textContent=dates.size;
+  const st=$('capStatus'); st.className='cap-status '+(fits?'ok':'bad');
+  st.textContent=fits?(K.need>0?'נכנס בגינה':'עוד לא נבחרו ירקות'):('חסר מקום ל-'+K.overflow+' שתילות');
+  const meter=$('meter'); meter.innerHTML='';
+  const tot=Math.max(K.have,K.need)||1, famLen=K.famLen;
+  for(const fk of Object.keys(FAM)) if(famLen[fk]){const s=document.createElement('span');s.style.width=(famLen[fk]/tot*100)+'%';s.style.background=`var(${FAM[fk].c})`;s.title=FAM[fk].n;meter.appendChild(s)}
+  const rot=K.replants?`<span><span class="rot ${K.rotated===K.replants?'ok':'bad'}">↻ ${K.rotated} מתוך ${K.replants}</span> שתילות חוזרות נכנסו אחרי משפחה אחרת</span>`:'';
+  $('legend').innerHTML=(Object.keys(FAM).filter(f=>K.places.some(pl=>pl.r.c.f===f)).map(f=>`<span><span class="sw" style="background:var(${FAM[f].c})"></span>${FAM[f].n}</span>`).join('')+rot)||'<span>עוד לא נבחרו ירקות.</span>';
+  renderBeds(P,K); renderCal(P,K); renderGantt(P,K); renderCompost(K);
+}
+
+function rng(a){a.sort((x,y)=>x-y);if(a.length===1)return 'סבב '+a[0];const cont=a[a.length-1]-a[0]===a.length-1;return 'סבבים '+(cont?a[0]+' עד '+a[a.length-1]:a.join(', '))}
+function ensureSymbols(){
+  if(document.getElementById('vegSyms'))return;
+  const d=document.createElement('div'); d.id='vegSyms';
+  d.innerHTML=`<svg width="0" height="0" style="position:absolute" aria-hidden="true">${CROPS.map(c=>`<symbol id="s-${c.id}" viewBox="0 0 32 32">${ICONS[c.id]||herb()}</symbol>`).join('')}</svg>`;
+  document.body.appendChild(d);
+}
+function renderBeds(P,K){
+  ensureSymbols();
+  const weeks=Math.max(P.SW+1,1), nowW=Math.floor((today()-P.start)/864e5/7);
+  if(mapWeek===null) mapWeek=Math.max(0,Math.min(weeks-1,nowW));
+  mapWeek=Math.max(0,Math.min(weeks-1,mapWeek)); const w=mapWeek;
+  $('mapDate').textContent=fmtD(addW(P.start,w));
+  const act=K.places.filter(pl=>pl.p.wk<=w&&w<pl.until);
+  $('mapSub').textContent=(w===nowW?'השבוע · ':'')+`שבוע ${w+1} · בשימוש ${r1(act.reduce((a,pl)=>a+pl.n*SEG,0))} מ׳`;
+  $('mapPrev').disabled=w<=0; $('mapNext').disabled=w>=weeks-1;
+  const box=$('beds'); box.innerHTML='';
+  const pad=4, NS='http://www.w3.org/2000/svg';
+  const mk=(tag,attrs,parent)=>{const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e};
+  K.beds.forEach((b,i)=>{
+    const here=act.filter(pl=>pl.bed===i).sort((a,b)=>a.st-b.st);
+    const usedM=here.reduce((a,pl)=>a+pl.n*SEG,0), free=b.len-usedM;
+    const div=document.createElement('div'); div.className='bed'+(b.extra?' over':'');
+    div.innerHTML=`<h3><span>ערוגה ${i+1} <small style="font-weight:600">${r1(b.len)} מ׳ × ${Math.round(b.wid)} ס״מ</small>${b.extra?' · אין לה מקום בגינה':''}</span><span>${here.length?(free>0.05?'פנוי '+r1(free)+' מ׳':'מלאה'):'פנויה'}</span></h3>`;
+    const Wcm=b.wid, Lcm=b.len*100;
+    const svg=mk('svg',{viewBox:`${-pad} ${-pad} ${Lcm+pad*2} ${Wcm+pad*2+18}`,role:'img','aria-label':`ערוגה ${i+1}`});
+    mk('rect',{x:0,y:0,width:Lcm,height:Wcm,rx:6,fill:b.extra?'none':css('--soil'),stroke:b.extra?css('--warn'):css('--soil-edge'),'stroke-width':b.extra?3:2,'stroke-dasharray':b.extra?'10 8':'0'},svg);
+    here.forEach((pl,pi)=>{
+      const c=pl.r.c, col=css(FAM[c.f].c), key=c.id+':'+pl.p.k;
+      const x=Lcm-(pl.st+pl.n)*SEG*100, wd=pl.n*SEG*100;
+      const g=mk('g',{class:'slot','data-key':key},svg);
+      mk('rect',{class:'bg',x,y:0,width:wd,height:Wcm,fill:col,'fill-opacity':pl.p.wk===w?.38:.2},g);
+      const nR=pl.nRows, rowGap=Wcm/nR, colN=Math.max(1,Math.round(wd/c.sp)), size=Math.min(26,Math.max(9,Math.min(c.sp,rowGap,wd/colN)*0.92));
+      let n=0; const tot=Math.round(pl.plants);
+      for(let ci=0;ci<colN&&n<tot;ci++)for(let ri=0;ri<nR&&n<tot;ri++){
+        const cx=x+wd-(ci+.5)*(wd/colN), cy=(ri+.5)*rowGap;
+        if(c.m==='d') mk('circle',{cx,cy,r:size/2,fill:'none',stroke:col,'stroke-width':1.4,'stroke-dasharray':'3 2.5'},g);
+        mk('use',{href:'#s-'+c.id,x:cx-size/2,y:cy-size/2,width:size,height:size,opacity:c.m==='d'?.8:1},g);
+        n++;
+      }
+      mk('line',{x1:x,x2:x,y1:2,y2:Wcm-2,stroke:css('--bg'),'stroke-width':2.5},svg);
+      mk('line',{x1:x+wd,x2:x+wd,y1:2,y2:Wcm-2,stroke:css('--bg'),'stroke-width':2.5},svg);
+      if(pl.p.wk===w) mk('rect',{x:x+2,y:Wcm+5,width:Math.max(0,wd-4),height:5,rx:2.5,fill:css('--leaf')},g);
+      mk('title',{},g).textContent=`${c.n} · נשתל ${fmtD(pl.p.date)} · ${where(K,pl)}`;
+      g.addEventListener('click',()=>{selected=key===selected?null:key;showDetail(P,K)});
+    });
+    svg.style.width=(b.len/K.maxLen*100)+'%';
+    div.appendChild(svg);
+    const keyEl=document.createElement('div'); keyEl.className='bedkey';
+    const grp={}; here.forEach(pl=>{const o=grp[pl.r.c.id]||(grp[pl.r.c.id]={pl,len:0,isNew:false});o.len+=pl.n*SEG;if(pl.p.wk===w){o.isNew=true;o.pl=pl}});
+    keyEl.innerHTML=Object.values(grp).map(({pl,len,isNew})=>`<button type="button" class="chip${isNew?' new':''}" data-key="${pl.r.c.id}:${pl.p.k}">${icon(pl.r.c.id)}<b>${pl.r.c.n}</b><span>${Math.round(len*100)} ס״מ${isNew?' · שותלים השבוע':''}</span></button>`).join('')||'<span class="hint" style="margin:0">ערוגה פנויה בשבוע הזה</span>';
+    keyEl.querySelectorAll('.chip').forEach(ch=>ch.addEventListener('click',()=>{selected=ch.dataset.key===selected?null:ch.dataset.key;showDetail(P,K)}));
+    div.appendChild(keyEl);
+    box.appendChild(div);
+  });
+  showDetail(P,K,true);
+}
+function showDetail(P,K){
+  const box=$('beds'); box.classList.toggle('dim',!!selected);
+  const crop=selected?selected.split(':')[0]:null;
+  box.querySelectorAll('.slot').forEach(g=>{g.classList.toggle('hl',g.dataset.key===selected);g.classList.toggle('same',!!crop&&g.dataset.key.split(':')[0]===crop)});
+  box.querySelectorAll('.chip').forEach(ch=>ch.classList.toggle('sel',!!crop&&ch.dataset.key.split(':')[0]===crop));
+  const el=$('detail');
+  if(!selected){el.textContent='לחצו על ירק בערוגה כדי לראות מתי הוא נשתל ומה בא אחריו.';return}
+  const pl=K.byPulse[selected]; if(!pl){selected=null;return showDetail(P,K)}
+  const c=pl.r.c, verb=c.m==='d'?'נזרע':'נשתל';
+  const before=pl.prevPl.length?'לפניו: '+pl.prevPl.map(q=>`${q.r.c.n} (${FAM[q.r.c.f].n})`).join(', ')+(pl.sameFam?' <span class="rot bad">אותה משפחה</span>':' <span class="rot ok">↻ משפחה אחרת</span>'):'אדמה שעוד לא גדל בה כלום העונה.';
+  const after=pl.next.length?'אחריו: '+pl.next.map(q=>`${q.r.c.n} (${FAM[q.r.c.f].n}) ב-${fmtD(q.p.date)}`).join(', ')+'.':'אחריו המקום נשאר פנוי עד סוף העונה.';
+  el.innerHTML=`${icon(c.id)} <b>${c.n}</b> · ${where(K,pl)}, ${pl.nRows} שורות כל ${c.sp} ס״מ<br>${verb} ב-${fmtD(pl.p.date)}: ${pl.plants} ${c.m==='d'?'נקודות':'שתילים'}. קטיף ${fmtD(addW(P.start,Math.ceil(pl.p.hs)))}–${fmtD(addW(P.start,Math.floor(pl.p.he)))}.<br>${before}<br>${after}`;
+}
+$('mapPrev').addEventListener('click',()=>{mapWeek--;selected=null;render()});
+$('mapNext').addEventListener('click',()=>{mapWeek++;selected=null;render()});
+
+function renderCal(P,K){
+  const by={};
+  P.rows.forEach(r=>r.pulses.forEach(p=>{(by[p.wk]=by[p.wk]||[]).push({r,p})}));
+  const perNow=PER.filter(x=>+(S.per[x.id]||0)>0);
+  if(perNow.length) (by[0]=by[0]||[]);
+  const box=$('cal'); box.innerHTML='';
+  const weeks=Object.keys(by).map(Number).sort((a,b)=>a-b);
+  if(!weeks.length){box.innerHTML='<div class="panel hint">בחרו ירקות בשלב 2 והיומן יופיע כאן.</div>';$('copyBox').value='';return}
+  const lines=[]; let openCount=0;
+  for(const wk of weeks){
+    const items=by[wk], date=addW(P.start,wk), key=iso(date);
+    const extra=wk===0?perNow:[];
+    const nP=items.filter(i=>i.r.c.m==='p').reduce((a,i)=>a+i.r.P,0)+extra.reduce((a,x)=>a+(+S.per[x.id]),0);
+    const nD=items.filter(i=>i.r.c.m==='d').reduce((a,i)=>a+i.r.P,0);
+    const d=document.createElement('details'); d.className='day'+(S.done[key]?' done':'');
+    if(!S.done[key] && openCount<2 && date>=addW(today(),-1)){d.open=true;openCount++}
+    d.innerHTML=`<summary><div class="day-h"><div><b>${fmtD(date)}</b> <small>${date.toLocaleDateString('he-IL',{weekday:'long'})}</small></div>
+      <label class="chk"><input type="checkbox" id="done-${key}" ${S.done[key]?'checked':''}> בוצע</label></div>
+      <div class="hint" style="margin:0">${nP?nP+' שתילים':''}${nP&&nD?' · ':''}${nD?nD+' נקודות זריעה':''} · ${items.length+extra.length} צמחים שונים <span class="more">▾ פירוט</span></div></summary><ul></ul>`;
+    const ul=d.querySelector('ul');
+    lines.push(`${fmtD(date)}:`);
+    items.sort((a,b)=>a.r.c.m.localeCompare(b.r.c.m));
+    for(const {r,p} of items){
+      const pl=K.byPulse[r.c.id+':'+p.k], loc=where(K,pl);
+      const after=pl&&pl.prevPl.length?` · אחרי ${[...new Set(pl.prevPl.map(q=>q.r.c.n))].join(', ')}`:'';
+      const li=document.createElement('li');
+      li.innerHTML=`${icon(r.c.id)}<span>${r.c.n}${r.c.m==='d'?' (זריעה)':''}</span><span><span class="q">${r.P}</span> <span class="loc">${loc}${after}</span></span>`;
+      ul.appendChild(li);
+      lines.push(`  ${r.c.n}${r.c.m==='d'?' (זריעה)':''}: ${r.P} – ${loc}${after}`);
+    }
+    for(const x of extra){
+      const li=document.createElement('li');
+      li.innerHTML=`${icon(x.id)}<span>${x.n}</span><span><span class="q">${S.per[x.id]}</span> <span class="loc">מסביב לגינה</span></span>`;
+      ul.appendChild(li); lines.push(`  ${x.n}: ${S.per[x.id]} – מסביב לגינה`);
+    }
+    d.querySelector('label.chk').addEventListener('click',e=>e.stopPropagation());
+    d.querySelector('input').addEventListener('change',e=>{S.done[key]=e.target.checked;save();d.classList.toggle('done',e.target.checked)});
+    box.appendChild(d);
+  }
+  $('copyBox').value=(S.name?S.name+' – ':'')+'יומן שתילה\n'+lines.join('\n');
+}
+
+const HOW={
+ parsley:'חותכים את הגבעולים החיצוניים כ-3 ס״מ מעל הקרקע. הלב ממשיך לצמוח.',
+ cilantro:'חותכים כ-5 ס״מ מעל הקרקע וחוזרים כשמתחדש. כשמתחיל לפרוח, מפנים.',
+ dill:'חותכים את הענפים העליונים, ומשאירים את הצמח להתחדש.',
+ rocket:'חותכים את העלים כ-3 ס״מ מעל הקרקע. יתחדש עוד 2–3 פעמים.',
+ mizuna:'חותכים כ-3 ס״מ מעל הקרקע. יתחדש עוד פעמיים-שלוש.',
+ fennel:'חותכים בבסיס כשהפקעת שמנה וצחורה, לפני שהיא מתארכת.',
+ carrot:'שולפים קודם את העבים ביותר. את הקטנים משאירים לשבוע הבא.',
+ celery:'קוטפים גבעולים חיצוניים, ומשאירים את הלב.',
+ radish:'שולפים כשהשורש בגודל כדור פינג-פונג. מאוחר יותר הוא מתעצה.',
+ turnip:'שולפים כשהשורש בקוטר 5–7 ס״מ.',
+ kohlrabi:'חותכים מתחת לפקעת כשהיא בגודל כדור טניס.',
+ bokchoy:'חותכים את כל הראש בבסיס, או קוטפים עלים חיצוניים.',
+ kale:'קוטפים עלים תחתונים וחיצוניים. הצמח ממשיך לצמוח מלמעלה.',
+ cabbage:'חותכים בבסיס כשהראש קשה ודחוס ללחיצה.',
+ cauli:'חותכים כשהתפרחת סגורה והדוקה, לפני שהיא נפתחת.',
+ broccoli:'חותכים את התפרחת המרכזית כשהניצנים סגורים. אחר כך יצמחו ענפי צד.',
+ beet:'שולפים כשהסלק בגודל כדור טניס. גם העלים טובים למאכל.',
+ chard:'קוטפים עלים חיצוניים בבסיס, ומשאירים 4–5 עלים במרכז.',
+ spinach:'קוטפים עלים חיצוניים, ומשאירים את הלב.',
+ lettuce:'חותכים את כל הראש, או קוטפים עלים חיצוניים לאורך כמה שבועות.',
+ lettuce2:'חותכים כ-3 ס״מ מעל הקרקע, והחסה תצמח שוב 2–4 פעמים.',
+ scallion:'חותכים את העלים לפי הצורך, או שולפים צמח שלם.',
+ leek:'שולפים אחת-אחת לפי הצורך, מהעבות ביותר.',
+ pea:'קוטפים תרמילים צעירים כל 2–3 ימים, כדי שהצמח ימשיך להניב.'
+};
+let hvWeek=null;
+function harvestAt(P,K,w){
+  const by={};
+  for(const r of P.rows){
+    const firstEver=Math.min(...r.pulses.map(p=>Math.ceil(p.hs)));
+    for(const p of r.pulses){
+      if(w<Math.ceil(p.hs)||w>p.he) continue;
+      const o=by[r.c.id]||(by[r.c.id]={r,first:w===firstEver,locs:[],ending:false});
+      o.locs.push(where(K,K.byPulse[r.c.id+':'+p.k]));
+      if(r.c.t!=='k'&&w===Math.floor(p.he)) o.ending=true;
+    }
+  }
+  return Object.values(by).map(o=>({...o,where:[...new Set(o.locs)].filter(Boolean).join(' | ')}));
+}
+function renderGantt(P,K){
+  const weeks=Math.max(P.SW+1,1);
+  if(hvWeek===null){hvWeek=Math.max(0,Math.min(weeks-1,Math.floor((today()-P.start)/864e5/7)))}
+  hvWeek=Math.max(0,Math.min(weeks-1,hvWeek));
+  const counts=[]; for(let w=0;w<weeks;w++) counts.push(harvestAt(P,K,w).length+perActive(P,w).length);
+  // strip: one bar per week
+  const svg=$('hvStrip'), cw=22, H=64, max=Math.max(1,...counts), W=weeks*cw;
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`); svg.setAttribute('width',W); svg.setAttribute('height',H);
+  const leaf=css('--leaf'), line=css('--line'), warn=css('--warn');
+  const nowW=Math.floor((today()-P.start)/864e5/7);
+  let h='';
+  for(let w=0;w<weeks;w++){
+    const x=W-(w+1)*cw, d=addW(P.start,w), bh=counts[w]/max*36;
+    if(w===hvWeek) h+=`<rect x="${x}" y="0" width="${cw}" height="${H}" rx="5" fill="${leaf}" fill-opacity=".14"/>`;
+    h+=`<rect x="${x+4}" y="${44-Math.max(bh,2)}" width="${cw-8}" height="${Math.max(bh,2)}" rx="2" fill="${counts[w]?leaf:line}" fill-opacity="${w===hvWeek?1:.65}"/>`;
+    if(w===nowW) h+=`<circle cx="${x+cw/2}" cy="4" r="2.5" fill="${warn}"/>`;
+    if(d.getDate()<=7) h+=`<text x="${x+cw/2}" y="58" font-size="10" text-anchor="middle" fill="${css('--muted')}" font-family="Assistant,sans-serif">${d.toLocaleDateString('he-IL',{month:'short'})}</text>`;
+    h+=`<rect x="${x}" y="0" width="${cw}" height="${H}" fill="transparent" data-w="${w}"><title>${fmtD(d)}: ${counts[w]} ירקות בקטיף</title></rect>`;
+  }
+  svg.innerHTML=h;
+  svg.onclick=e=>{const w=e.target.getAttribute('data-w'); if(w!==null){hvWeek=+w; renderGantt(P,K)}};
+  // keep selected week visible in the strip
+  const sc=svg.parentElement; const sx=W-(hvWeek+1)*cw; if(sx<sc.scrollLeft||sx>sc.scrollLeft+sc.clientWidth-cw) sc.scrollLeft=sx-sc.clientWidth/2;
+  // header
+  const d0=addW(P.start,hvWeek), d1=addW(P.start,hvWeek+.86);
+  $('hvDate').textContent=`${fmtD(d0)} – ${fmtD(d1)}`;
+  $('hvSub').textContent=(hvWeek===nowW?'השבוע · ':'')+`שבוע ${hvWeek+1} בעונה · ${counts[hvWeek]} פריטים בקטיף ובפריחה`;
+  $('hvPrev').disabled=hvWeek<=0; $('hvNext').disabled=hvWeek>=weeks-1;
+  // list
+  const items=harvestAt(P,K,hvWeek);
+  const list=$('hvList');
+  const perItems=perActive(P,hvWeek);
+  if(!P.rows.length&&!perItems.length){list.innerHTML='<div class="hint">בחרו ירקות בשלב 2.</div>'}
+  else if(!items.length&&!perItems.length){list.innerHTML='<div class="hint">אין קטיף בשבוע הזה.</div>'}
+  else list.innerHTML=items.map(o=>`<div class="hv-item">${icon(o.r.c.id)}
+     <div class="top"><b>${o.r.c.n}${o.first?'<span class="tag new">קטיף ראשון</span>':''}${o.ending?'<span class="tag last" title="השבוע האחרון לקטיף שתילה מסוימת. אחריו מפנים את המקום לשתילה הבאה">לפנות השבוע</span>':''}</b><span class="amt">${o.r.D} ${o.r.c.u}</span></div>
+     <div class="where">${o.where}</div>
+     <div class="how">${HOW[o.r.c.id]||''}</div></div>`).join('')+perItems.map(({x,q,first})=>`<div class="hv-item">${icon(x.id)}
+     <div class="top"><b>${x.n}${first?`<span class="tag new">${x.kind==='fl'?'פריחה':'קטיף ראשון'}</span>`:''}</b><span class="amt">${x.kind==='fl'?'בפריחה':'לפי הצורך'}</span></div>
+     <div class="where">מסביב לגינה · ${q} צמחים</div>
+     <div class="how">${x.how}</div></div>`).join('');
+  // coming next: crops whose first harvest starts in the next 3 weeks
+  const soon=[];
+  for(const r of P.rows){const first=Math.min(...r.pulses.map(p=>Math.ceil(p.hs))); if(first>hvWeek&&first<=hvWeek+3) soon.push(`<b>${r.c.n}</b> מ-${fmtD(addW(P.start,first))}`)}
+  const nowIds=new Set(perItems.map(o=>o.x.id)); for(let w=hvWeek+1;w<=hvWeek+3;w++) for(const o of perActive(P,w)) if(!nowIds.has(o.x.id)){nowIds.add(o.x.id);soon.push(`<b>${o.x.n}</b> מ-${fmtD(addW(P.start,w))}`)}
+  $('hvSoon').innerHTML=soon.length?'מתחילים בקרוב: '+soon.join(' · '):'';
+}
+$('hvPrev').addEventListener('click',()=>{hvWeek--;render()});
+$('hvNext').addEventListener('click',()=>{hvWeek++;render()});
+
+function renderCompost(K){
+  const area=K.area;
+  const per={deep:125,nodig:175,classic:25}[S.cm];
+  $('cArea').textContent=r1(area)+' מ״ר';
+  $('cLit').textContent=Math.round(area*per).toLocaleString('he-IL')+' ל׳';
+  $('cNote').textContent={deep:'חישוב לפי 12.5 ס״מ בממוצע = 125 ליטר למ״ר. מנקים קודם את כל העשבים החיים.',
+    nodig:'חישוב לפי 17.5 ס״מ בממוצע = 175 ליטר למ״ר, ועוד רסק עץ לשבילים וקרטונים נקיים מסלוטייפ.',
+    classic:'25 ליטר למ״ר, מעורבבים לעומק 30 ס״מ.'}[S.cm];
+}
+
+// ---------- actions ----------
+function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,1800)}
+$('btnCopy').addEventListener('click',()=>{
+  const txt=$('copyBox').value;
+  const fallback=()=>{const b=$('copyBox');b.hidden=false;b.focus();b.select();toast('סמנו והעתיקו את הטקסט')};
+  try{navigator.clipboard.writeText(txt).then(()=>toast('היומן הועתק'),fallback)}catch(e){fallback()}
+});
+let confirmArm=null;
+function arm(btn,label,fn){
+  if(confirmArm===btn){confirmArm=null;btn.textContent=label;fn();return}
+  confirmArm=btn; const old=label; btn.textContent='לחצו שוב לאישור';
+  setTimeout(()=>{if(confirmArm===btn){confirmArm=null;btn.textContent=old}},2500);
+}
+$('btnSample').addEventListener('click',e=>arm(e.currentTarget,'טען דוגמה',()=>{const n=S.name,gr=S.groups;S=defaultState(true);S.name=n;S.groups=gr;save();init();toast('נטענה דוגמה למשפחה קטנה')}));
+$('btnClear').addEventListener('click',e=>arm(e.currentTarget,'התחל מאפס',()=>{const keep={name:S.name,start:S.start,end:S.end,groups:S.groups,rhythm:S.rhythm,cm:S.cm};S=Object.assign(defaultState(false),keep);save();init();toast('כל הכמויות אופסו')}));
+
+function init(){fillInputs();renderCrops();renderPer();render()}
+bindInputs();init();
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>render());
+new MutationObserver(()=>render()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+</script>
+
+</body>
+</html>
