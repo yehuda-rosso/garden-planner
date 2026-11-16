@@ -13,7 +13,7 @@
   --bg:#f1f3ec; --panel:#ffffff; --ink:#1f2a1d; --muted:#5f6b5a; --line:#d9ded0;
   --leaf:#2f6b3a; --leaf-soft:#e2eddd; --soil:#5a4433; --soil-edge:#3f2f23; --path:#d8cdb9;
   --warn:#b4541e; --warn-soft:#f7e3d6; --ok:#2f6b3a;
-  --f-umb:#c9b21f; --f-cru:#2f8f83; --f-bet:#b0316a; --f-com:#7fae2a; --f-all:#8a6fc4; --f-leg:#e07a8f;
+  --f-umb:#c9b21f; --f-cru:#2f8f83; --f-bet:#b0316a; --f-com:#7fae2a; --f-all:#8a6fc4; --f-leg:#e07a8f; --f-ros:#d9434f;
   --display:"Suez One","Assistant",Georgia,serif; --body:"Assistant","Segoe UI",Arial,sans-serif;
   color-scheme:light;
 }
@@ -290,7 +290,7 @@ textarea{width:100%;min-height:120px;font:inherit;font-size:13px;background:var(
 // ---------- crop data (course material; est = fields that are estimates) ----------
 const FAM = {
   umb:{n:'סוככיים',c:'--f-umb'}, cru:{n:'מצליבים',c:'--f-cru'}, bet:{n:'סלקיים',c:'--f-bet'},
-  com:{n:'מורכבים',c:'--f-com'}, all:{n:'שומיים',c:'--f-all'}, leg:{n:'פרפרניים',c:'--f-leg'}
+  com:{n:'מורכבים',c:'--f-com'}, all:{n:'שומיים',c:'--f-all'}, leg:{n:'פרפרניים',c:'--f-leg'}, ros:{n:'ורדניים',c:'--f-ros'}
 };
 // t: s=single, c=cuts, k=continuous. m: p=transplant, d=direct sow.
 // r=rows in 80cm, sp=cm in row, ppu=plants per unit, cuts, L=weeks to first harvest, M=weeks in bed, I=interval wks, N=plantings/season
@@ -318,6 +318,7 @@ const CROPS = [
  {id:'lettuce2',n:'חסה קטנה',f:'com',u:'ראשים',t:'s',m:'p',r:4,sp:20,ppu:1,L:4,M:4,I:2,d:2},
  {id:'scallion',n:'בצל ירוק',f:'all',u:'צרור',t:'k',m:'p',r:3,sp:20,ppu:3,L:7,N:2,d:1,est:1},
  {id:'leek',n:'כרישה',f:'all',u:'יחידות',t:'k',m:'p',r:6,sp:10,ppu:15,L:16,N:1,d:0,est:1},
+ {id:'strawberry',n:'תות שדה',f:'ros',u:'סלסלות (250 גרם)',t:'k',m:'p',r:3,sp:30,ppu:9,L:12,N:1,d:0,est:1},
  {id:'pea',n:'אפונת שלג',f:'leg',u:'סלסלות',t:'k',m:'p',r:1,sp:20,ppu:5,L:10,N:2,d:0,est:1},
 ];
 const TYPE = {s:'קטיף בודד',c:'כמה חיתוכים',k:'קטיף מתמשך'};
@@ -352,6 +353,7 @@ const ICONS={
  lettuce2:`<circle cx="16" cy="18" r="11" fill="#7a2e4a"/><circle cx="16" cy="18" r="8" fill="#9bc75a"/><path d="M8 13c2 1 4 0 5-2M24 13c-2 1-4 0-5-2M7 20c2 0 3 1 4 3M25 20c-2 0-3 1-4 3" stroke="#5a1f35" fill="none"/><circle cx="16" cy="18" r="4" fill="#c4e08a"/>`,
  scallion:`<path d="M12 4l1 18M16 2v20M20 4l-1 18" stroke="#3f8f32" stroke-width="2.6" stroke-linecap="round"/><path d="M12 22h8l-1 6h-6z" fill="#f2f0e2" stroke="#d2cfb4"/><path d="M14 28l-1 3M16 28v3M18 28l1 3" stroke="#d2cfb4"/>`,
  leek:`<path d="M13 16L7 3M16 15V2M19 16l6-13" stroke="#2f6b45" stroke-width="3" stroke-linecap="round"/><rect x="12" y="14" width="8" height="15" rx="3" fill="#eef1dc" stroke="#cfd3b0"/><path d="M12 18h8" stroke="#b8d48a" stroke-width="2"/><path d="M14 29l-1 2M16 29v2.5M18 29l1 2" stroke="#cfd3b0"/>`,
+ strawberry:`<path d="M9 9c2-3 5-4 7-2 2-2 5-1 7 2-3 0-5 1-7 2-2-1-4-2-7-2z" fill="#3f8f32"/><path d="M16 10c-6 0-9 4-8 9 1 6 5 10 8 11 3-1 7-5 8-11 1-5-2-9-8-9z" fill="#d9343f"/><g fill="#f6e27a"><circle cx="12" cy="15" r=".9"/><circle cx="16" cy="14" r=".9"/><circle cx="20" cy="15" r=".9"/><circle cx="13" cy="20" r=".9"/><circle cx="17" cy="19" r=".9"/><circle cx="19.5" cy="23" r=".9"/><circle cx="14.5" cy="24.5" r=".9"/></g>`,
  pea:`<path d="M5 22c4-10 14-16 22-16-2 9-10 18-20 20z" fill="#6cb33f"/><g fill="#a6d96a" stroke="#5a9a34" stroke-width=".6"><circle cx="11" cy="19.5" r="2.4"/><circle cx="15.5" cy="15.5" r="2.4"/><circle cx="20" cy="11.5" r="2.4"/></g><path d="M27 6c1-2 3-3 4-2" stroke="#4f8a2c" fill="none"/>`,
 };
 function icon(id){return `<svg class="ic" viewBox="0 0 32 32" aria-hidden="true">${ICONS[id]||herb()}</svg>`}
@@ -727,6 +729,7 @@ const HOW={
  lettuce2:'חותכים כ-3 ס״מ מעל הקרקע, והחסה תצמח שוב 2–4 פעמים.',
  scallion:'חותכים את העלים לפי הצורך, או שולפים צמח שלם.',
  leek:'שולפים אחת-אחת לפי הצורך, מהעבות ביותר.',
+ strawberry:'קוטפים פרי אדום לגמרי יחד עם העוקץ, כל יומיים-שלושה, בבוקר. חיפוי קש מתחת לצמחים שומר על הפירות נקיים.',
  pea:'קוטפים תרמילים צעירים כל 2–3 ימים, כדי שהצמח ימשיך להניב.'
 };
 let hvWeek=null;
