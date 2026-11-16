@@ -212,7 +212,7 @@ textarea{width:100%;min-height:120px;font:inherit;font-size:13px;background:var(
 
 <section>
   <h2><span class="n">3</span>מפת הערוגות</h2>
-  <p class="hint">כל ציור הוא צמח במקום שלו בערוגה. כשירק נקטף ומתפנה מקום, השתילה הבאה שם היא ממשפחה אחרת, כדי לגוון את מה שהקרקע נותנת ומקבלת. בחרו שבוע כדי לראות מה גדל באותו זמן. פס ירוק מתחת לערוגה = שותלים שם השבוע. עיגול מקווקו = נקודת זריעה. לחיצה על ירק מראה מתי הוא נשתל ומה בא אחריו.</p>
+  <p class="hint">כל ציור הוא צמח במקום שלו בערוגה. כשירק נקטף ומתפנה מקום, השתילה הבאה שם היא ממשפחה אחרת, כדי לגוון את מה שהקרקע נותנת ומקבלת. בחרו שבוע כדי לראות מה גדל באותו זמן. פס ירוק מתחת לערוגה = שותלים שם השבוע. המרחקים ביומן (למשל 40–80 ס״מ) נמדדים מהקצה הימני של הערוגה כפי שהיא מצוירת. עיגול מקווקו = נקודת זריעה. לחיצה על ירק מראה מתי הוא נשתל ומה בא אחריו.</p>
   <div class="hv-nav map-nav">
     <button type="button" id="mapPrev" aria-label="שבוע קודם">→</button>
     <div class="hv-title"><b id="mapDate"></b><small id="mapSub"></small></div>
@@ -411,7 +411,7 @@ function plan(){
     const pulses=[];
     for(let k=0;k<W;k++){
       const wk=k*I, hs=wk+c.L;
-      const he=c.t==='k'?(k<W-1?(k+1)*I+c.L-1:SW):(c.t==='s'?hs+I-1:wk+c.M-1);
+      const he=c.t==='k'?(k<W-1?(k+1)*I+Math.ceil(c.L)-1:SW):(c.t==='s'?Math.ceil(hs)+I-1:wk+c.M-1);
       pulses.push({k,wk,date:addW(start,wk),slot:k%slots,hs,he});
     }
     rows.push({c,D,I,P,slots,W,pulses});
@@ -420,7 +420,7 @@ function plan(){
 }
 
 function geo(c,wid){/* rows may sit up to 10% closer than the course spacing, except for crops that need room */const nRows=Math.max(1,Math.floor(c.r*wid/(ROOMY.has(c.id)?80:72)+1e-9));const ppm=nRows*100/c.sp;return {nRows,ppm}}
-function bedList(){const out=[];for(const g of S.groups){const n=Math.max(0,Math.min(60,+g.n|0));for(let i=0;i<n;i++)out.push({len:Math.max(.3,+g.len||3),wid:Math.max(20,+g.wid||80)})}return out.length?out:[{len:3,wid:80}]}
+function bedList(){const out=[];for(const g of S.groups){const n=Math.max(0,Math.min(60,+g.n|0));for(let i=0;i<n;i++)out.push({len:Math.max(.3,+g.len||3),wid:Math.max(20,+g.wid||80)})}return out}
 // pack slots into beds (grouped by family for rotation)
 // crops that need their full spacing: get the widest beds first and are never squeezed
 const ROOMY=new Set(['fennel','cabbage','cauli','broccoli','kale','chard','lettuce','kohlrabi']);
@@ -428,7 +428,7 @@ const SEG=0.05; // bed length is tracked in 5 cm steps
 function busyUntil(r,p){return r.c.t==='s'?Math.ceil(p.he):Math.floor(p.he)+1}
 // Week-by-week placement: every planting takes a free stretch of bed, preferring soil last used by another family.
 function pack(rows,SW){
-  const list=bedList(), nb=list.length;
+  const list=bedList(), nb=list.length, fallback={len:3,wid:80};
   const beds=list.map(d=>({len:d.len,wid:d.wid,extra:false,segs:Array.from({length:Math.max(1,Math.round(d.len/SEG))},()=>({until:0,fam:null,crop:null,pl:null}))}));
   const rankWide=[...beds.keys()].sort((x,y)=>beds[y].wid-beds[x].wid||x-y);
   const rankNarrow=[...beds.keys()].sort((x,y)=>beds[x].wid-beds[y].wid||x-y);
@@ -459,7 +459,7 @@ function pack(rows,SW){
     });
     if(!best){
       overflow++;
-      const d=beds[order[0]]; const b={len:d.len,wid:d.wid,extra:true,segs:Array.from({length:d.segs.length},()=>({until:0,fam:null,crop:null,pl:null}))};
+      const d=beds[order[0]]||{len:fallback.len,wid:fallback.wid,segs:{length:Math.round(fallback.len/SEG)}}; const b={len:d.len,wid:d.wid,extra:true,segs:Array.from({length:d.segs.length},()=>({until:0,fam:null,crop:null,pl:null}))};
       beds.push(b); rankWide.push(beds.length-1); rankNarrow.push(beds.length-1);
       best={bi:beds.length-1,st:0,n:Math.min(b.segs.length,segsFor(c,r.P,b.wid)),same:0,used:0};
     }
@@ -476,7 +476,7 @@ function pack(rows,SW){
   for(let w=0;w<=SW;w++){let m=0; for(const pl of places) if(pl.p.wk<=w&&w<pl.until) m+=pl.n*SEG; if(m>need){need=m;peakW=w}}
   const famLen={}; for(const pl of places) if(pl.p.wk<=peakW&&peakW<pl.until) famLen[pl.r.c.f]=(famLen[pl.r.c.f]||0)+pl.n*SEG;
   const replants=places.filter(pl=>pl.prevFams.length), rotated=replants.filter(pl=>!pl.sameFam);
-  const have=list.reduce((a,d)=>a+d.len,0), area=list.reduce((a,d)=>a+d.len*d.wid/100,0), maxLen=Math.max(...beds.map(x=>x.len));
+  const have=list.reduce((a,d)=>a+d.len,0), area=list.reduce((a,d)=>a+d.len*d.wid/100,0), maxLen=Math.max(1,...beds.map(x=>x.len));
   return {beds,nb,places,byPulse,need,have,area,maxLen,famLen,overflow,replants:replants.length,rotated:rotated.length};
 }
 const where=(K,pl)=>pl?`ערוגה ${pl.bed+1} · ${Math.round(pl.st*SEG*100)}–${Math.round((pl.st+pl.n)*SEG*100)} ס״מ`:'';
@@ -557,7 +557,10 @@ function render(){
   const dates=new Set(); P.rows.forEach(r=>r.pulses.forEach(p=>dates.add(p.wk)));
   $('capNeed').textContent=r1(K.need); $('capHave').textContent=r1(K.have); $('capDays').textContent=dates.size;
   const st=$('capStatus'); st.className='cap-status '+(fits?'ok':'bad');
-  st.textContent=fits?(K.need>0?'נכנס בגינה':'עוד לא נבחרו ירקות'):('חסר מקום ל-'+K.overflow+' שתילות');
+  const anyQty=CROPS.some(c=>+S.qty[c.id]>0);
+  if(P.SW<1&&anyQty){st.className='cap-status bad';st.textContent='תאריך סוף הקטיף צריך להיות אחרי תחילת העונה'}
+  else if(!K.nb&&anyQty){st.className='cap-status bad';st.textContent='הוסיפו ערוגות בשלב 1'}
+  else st.textContent=fits?(K.need>0?'נכנס בגינה':'עוד לא נבחרו ירקות'):('חסר מקום ל-'+K.overflow+' שתילות');
   const meter=$('meter'); meter.innerHTML='';
   const tot=Math.max(K.have,K.need)||1, famLen=K.famLen;
   for(const fk of Object.keys(FAM)) if(famLen[fk]){const s=document.createElement('span');s.style.width=(famLen[fk]/tot*100)+'%';s.style.background=`var(${FAM[fk].c})`;s.title=FAM[fk].n;meter.appendChild(s)}
