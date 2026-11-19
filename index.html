@@ -163,7 +163,9 @@ button.ghost{background:transparent}
 .hv-item .amt{font-weight:700;color:var(--leaf);white-space:nowrap}
 .hv-item .where{font-size:12.5px;color:var(--muted)}
 .hv-item .how{font-size:13px;color:var(--ink);opacity:.9;line-height:1.4}
-.hv-item .when{font-size:12px;color:var(--muted);line-height:1.35}
+.hv-item .when{font-size:13px;color:var(--ink);line-height:1.4}
+.hv-item .how{color:var(--muted)!important;font-size:12.5px!important}
+.hk-d{font-size:12px;color:var(--muted)}
 .hk{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:99px;margin:2px 0}
 .hk.once{background:var(--warn-soft);color:var(--warn)}
 .hk.regrow{background:var(--leaf-soft);color:var(--ok)}
@@ -357,15 +359,45 @@ const CROPS = [
 ];
 const TYPE = {s:'קטיף בודד',c:'כמה חיתוכים',k:'קטיף מתמשך'};
 // how each crop is harvested: one-time pull, one-time cut, regrows after cutting, or keeps growing
-const HK={pull:['חד-פעמי · שולפים את כל הצמח','once'],head:['חד-פעמי · חותכים את כל הצמח','once'],regrow:['חוזר לצמוח אחרי חיתוך','regrow'],leaves:['מתמשך · קוטפים עלים והצמח ממשיך לגדול','cont'],fruit:['מתמשך · ממשיך להניב','cont']};
-const KIND={carrot:'pull',radish:'pull',turnip:'pull',beet:'pull',fennel:'head',kohlrabi:'head',bokchoy:'head',cabbage:'head',cauli:'head',broccoli:'head',lettuce:'head',
- lettuce2:'regrow',parsley:'regrow',cilantro:'regrow',dill:'regrow',rocket:'regrow',mizuna:'regrow',
- celery:'leaves',kale:'leaves',chard:'leaves',spinach:'leaves',scallion:'leaves',leek:'leaves',strawberry:'fruit',pea:'fruit'};
+// harvest type and timing as taught in the course (lesson "תכנון גן ירק חורפי" + the course crop table).
+// t: s=קטיף בודד, c=מספר חיתוכים, k=מתמשך. first=weeks to first harvest, win=harvest window (weeks), cuts, span, note. src:0 = not in the course material yet
+const HC={
+ parsley:{t:'c',first:'6',cuts:'4',note:'פטרוזיליה אפשר לרוב למשוך לעוד חיתוכים, ולפעמים לקטוף ממנה חודשים.'},
+ cilantro:{t:'c',first:'5',cuts:'2–3'},
+ dill:{t:'c',first:'5',cuts:'2–3'},
+ rocket:{t:'c',first:'3–4',cuts:'2–4'},
+ mizuna:{t:'c',first:'4',cuts:'2–4'},
+ fennel:{t:'s',first:'8–10'},
+ carrot:{t:'s',first:'10',win:'4'},
+ radish:{t:'s',first:'3–4',win:'1'},
+ turnip:{t:'s',first:'6',src:0},
+ beet:{t:'s',first:'7',win:'3'},
+ lettuce:{t:'s',plus:1,first:'4',win:'2–3',note:'קטיף בודד+: לפני שקוטפים את הראש אפשר להשתמש בעלים החיצוניים. החלון תלוי בעונה.'},
+ lettuce2:{t:'s',plus:1,first:'4',win:'2–3',note:'קטיף בודד+: אם חותכים גבוה, החסה מתחדשת 2–4 פעמים.'},
+ kohlrabi:{t:'s',first:'7',win:'2'},
+ bokchoy:{t:'s',first:'4',win:'2'},
+ cabbage:{t:'s',first:'9–12',win:'3'},
+ cauli:{t:'s',first:'9–12',win:'1'},
+ broccoli:{t:'s',first:'9–12',win:'1'},
+ spinach:{t:'k',first:'6',span:'כחצי עונה (16–20 שבועות בערוגה), ואז עולה לפריחה'},
+ chard:{t:'k',first:'5',span:'כל העונה'},
+ kale:{t:'k',first:'6',span:'כל העונה'},
+ celery:{t:'k',first:'8',span:'כל העונה'},
+ scallion:{t:'k',first:'7',span:'כל העונה, אבל האיכות יורדת',note:'בצל ירוק הוא בודד/מתמשך: אפשר גם לשלוף צמח שלם.'},
+ pea:{t:'k',first:'10',span:'כחצי עונה'},
+ leek:{t:'k',first:'16',span:'עד סוף העונה',src:0},
+ strawberry:{t:'k',first:'12',span:'עד סוף העונה',src:0},
+};
+const HT={s:['קטיף בודד','once','קוטפים פעם אחת וזהו, ומפנים את המקום'],c:['קטיף מס׳ חיתוכים','regrow','שתיל אחד נותן כמה קטיפים אם חותכים נכון'],k:['קטיף מתמשך','cont','הצמח ממשיך לתת יבול לאורך זמן']};
+function harvestBadge(c){const h=HC[c.id]; if(!h) return ''; const T=HT[h.t]; return `<span class="hk ${T[1]}">${T[0]}${h.plus?'+':''}</span> <span class="hk-d">${T[2]}</span>`}
 function harvestPlan(r){
-  const c=r.c;
-  if(c.t==='s') return `כל שתילה מוכנה כ-${Math.round(c.L)} שבועות אחרי השתילה. קוטפים אותה במשך ${r.I===1?'שבוע':r.I+' שבועות'}, מהגדולים לקטנים, ואז מפנים את המקום.`;
-  if(c.t==='c') return `מתחילים לחתוך כ-${Math.round(c.L)} שבועות אחרי השתילה. כל צמח נותן כ-${Math.round(c.cuts)} חיתוכים, אחד כל 1–2 שבועות, ואז מפנים.`;
-  return `מתחילים לקטוף כ-${Math.round(c.L)} שבועות אחרי השתילה, וממשיכים כל שבוע ${c.N>1?'עד שהשתילה הבאה מחליפה אותו':'עד סוף העונה'}.`;
+  const h=HC[r.c.id]; if(!h) return '';
+  let t=`קטיף ראשון כ-${h.first} שבועות אחרי השתילה. `;
+  if(h.t==='s') t+=h.win?`חלון קטיף: ${h.win==='1'?'שבוע':h.win+' שבועות'}, מהרגע שהירק בגודל טוב ועד שהוא מאבד מאיכותו.`:'';
+  else if(h.t==='c') t+=`${h.cuts} חיתוכים משתיל אחד. אחר כך האיכות יורדת (בדרך כלל עולה לפריחה), ואז מפנים.`;
+  else t+=`ממשיכים לקטוף ${h.span}.`;
+  if(h.note) t+=' '+h.note;
+  return t+(h.src===0?' <span class="est" title="עוד לא מופיע בחומרי הקורס">≈</span>':'');
 }
 
 
@@ -897,9 +929,9 @@ function renderGantt(P,K){
   else list.innerHTML=items.map(o=>`<div class="hv-item">${icon(o.r.c.id)}
      <div class="top"><b>${o.r.c.n}${o.first?'<span class="tag new">קטיף ראשון</span>':''}${o.ending?'<span class="tag last" title="השבוע האחרון לקטיף שתילה מסוימת. אחריו מפנים את המקום לשתילה הבאה">לפנות השבוע</span>':''}</b><span class="amt">${o.amt} ${o.r.c.u}</span></div>
      <div class="where">${o.where}</div>
-     ${KIND[o.r.c.id]?`<div><span class="hk ${HK[KIND[o.r.c.id]][1]}">${HK[KIND[o.r.c.id]][0]}</span></div>`:''}
-     <div class="how">${HOW[o.r.c.id]||''}</div>
-     <div class="when">${harvestPlan(o.r)}</div></div>`).join('')+perItems.map(({x,q,first})=>`<div class="hv-item">${icon(x.id)}
+     ${HC[o.r.c.id]?`<div>${harvestBadge(o.r.c)}</div>`:''}
+     <div class="when">${harvestPlan(o.r)}</div>
+     ${HOW[o.r.c.id]?`<div class="how"><b>איך קוטפים</b> <span class="est" title="טיפ כללי, עוד לא מחומרי הקורס">≈</span> ${HOW[o.r.c.id]}</div>`:''}</div>`).join('')+perItems.map(({x,q,first})=>`<div class="hv-item">${icon(x.id)}
      <div class="top"><b>${x.n}${first?`<span class="tag new">${x.kind==='fl'?'פריחה':'קטיף ראשון'}</span>`:''}</b><span class="amt">${x.kind==='fl'?'בפריחה':'לפי הצורך'}</span></div>
      <div class="where">מסביב לגינה · ${q} צמחים</div>
      <div class="how">${x.how}</div></div>`).join('');
