@@ -159,6 +159,10 @@ button.ghost{background:transparent}
 .tag{display:inline-block;font-size:11px;font-weight:700;padding:0 6px;border-radius:99px;margin-inline-start:4px;vertical-align:1px}
 .tag.new{background:var(--leaf-soft);color:var(--ok)}
 .tag.last{background:var(--warn-soft);color:var(--warn)}
+.act-btn{margin-top:8px;font-size:13px;padding:4px 10px}
+.acted ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.cal-add{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 12px}
+.cal-add input{max-width:11em}
 .hv-soon{font-size:13.5px;color:var(--muted)}
 .hv-soon b{color:var(--ink)}
 .scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
@@ -244,6 +248,8 @@ textarea{width:100%;min-height:120px;font:inherit;font-size:13px;background:var(
     <p class="hint" style="margin:0">מה קונים במשתלה בכל ביקור, ואיפה שותלים כל דבר.</p>
     <button id="btnCopy" type="button">העתק את היומן כטקסט</button>
   </div>
+  <div class="cal-add"><span class="hint" style="margin:0">שתלתם ביום שלא מופיע ביומן?</span><input type="date" id="actDate" aria-label="תאריך השתילה"><button type="button" id="btnActAdd">עדכון שתילה בתאריך הזה</button></div>
+  <div id="actNew"></div>
   <div class="cal" id="cal"></div>
   <textarea id="copyBox" hidden readonly></textarea>
 </section>
@@ -403,13 +409,14 @@ function defaultState(sample){
   const t=today(); const endY=t.getMonth()>=6?t.getFullYear()+1:t.getFullYear();
   const qty={}; CROPS.forEach(c=>qty[c.id]=sample?c.d:0);
   const per={}; PER.forEach(x=>per[x.id]=sample?x.d:0);
-  return {name:'',start:iso(t),end:endY+'-05-15',groups:[{n:6,len:3,wid:80}],rhythm:2,qty,per,done:{},cm:'deep'};
+  return {name:'',start:iso(t),end:endY+'-05-15',groups:[{n:6,len:3,wid:80}],rhythm:2,qty,per,done:{},actual:{},cm:'deep'};
 }
 let S;
 try{S=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){S=null}
 const HAD_SAVED=!!(S&&S.qty);
 if(!S||!S.qty){S=defaultState(true)}
 if(!S.per){S.per={}}
+if(!S.actual){S.actual={}}
 if(!S.groups){S.groups=[{n:+S.beds||6,len:+S.len||3,wid:+S.wid||80}]}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 
@@ -422,30 +429,47 @@ function addW(d,w){const x=new Date(d);x.setDate(x.getDate()+Math.round(w*7));re
 // last sensible planting date for a winter crop (month, day); later plantings bolt or head up in spring heat — estimates awaiting course approval
 const LAST_PLANT={"parsley": [3, 15], "cilantro": [2, 28], "dill": [2, 28], "fennel": [1, 31], "carrot": [3, 1], "celery": [1, 31], "rocket": [3, 1], "mizuna": [3, 1], "radish": [3, 31], "turnip": [2, 28], "kohlrabi": [2, 15], "bokchoy": [2, 15], "kale": [1, 31], "cabbage": [12, 31], "cauli": [12, 15], "broccoli": [12, 15], "beet": [3, 15], "chard": [3, 31], "spinach": [2, 15], "lettuce": [3, 1], "lettuce2": [3, 1], "scallion": [3, 31], "leek": [12, 15], "strawberry": [12, 15], "pea": [12, 31]};
 function lastPlantDate(c,start){const v=LAST_PLANT[c.id]; if(!v) return null; const Y=start.getMonth()>=6?start.getFullYear():start.getFullYear()-1; return new Date(v[0]>=7?Y:Y+1,v[0]-1,v[1])}
+function actWeek(k,start){return Math.round((new Date(k+'T00:00')-start)/864e5/7)}
+function actKey(k){const st=new Date(S.start+'T00:00');return iso(addW(st,Math.max(0,actWeek(k,st))))}
 function plan(){
   const start=new Date(S.start+'T00:00'), end=new Date(S.end+'T00:00');
   const SW=Math.max(0,Math.floor((end-start)/864e5/7));
   const R=Math.max(1,+S.rhythm||1);
   const rows=[];
+  // what was actually planted, by week of the season: {wk:{crop:qty}}
+  const ACT={};
+  for(const k in S.actual||{}){const wk=actWeek(k,start); if(wk<0||wk>=SW) continue; const a=ACT[wk]||(ACT[wk]={}); for(const id in S.actual[k]) a[id]=(a[id]||0)+(+S.actual[k][id]||0)}
   for(const c of CROPS){
-    const D=+S.qty[c.id]||0; if(D<=0) continue;
-    let I=c.t==='k'?Math.max(R,Math.ceil(SW/c.N/R)*R):Math.max(R,Math.floor(c.I/R)*R);
-    const P=c.t==='k'?Math.ceil(D*c.ppu):Math.ceil(D*c.ppu*I/(c.t==='c'?c.cuts:1));
+    const D0=+S.qty[c.id]||0, actQ=Object.keys(ACT).map(w=>+ACT[w][c.id]||0).filter(q=>q>0);
+    if(D0<=0&&!actQ.length) continue;
+    let D=D0, I=c.t==='k'?Math.max(R,Math.ceil(SW/c.N/R)*R):Math.max(R,Math.floor(c.I/R)*R);
+    const per=c.t==='k'?c.ppu:c.ppu*I/(c.t==='c'?c.cuts:1); // plants per unit of weekly harvest
+    if(D<=0) D=r1(actQ[0]/per); // not in the plan, only planted: harvest follows from what went in
+    const P=Math.ceil(D*per);
     // rounds that share the bed at once: a round is harvested over I weeks, and its spot is replanted in the week of its last harvest
     const slots=c.t==='k'?Math.min(c.N,2):(c.t==='s'?Math.ceil((c.L-1)/I)+1:Math.ceil(c.M/I));
-    let W=0; if(SW-c.L>=0){W=Math.floor((SW-c.L)/I)+1; if(c.t==='k')W=Math.min(c.N,W)}
+    let W=0; if(D0>0&&SW-c.L>=0){W=Math.floor((SW-c.L)/I)+1; if(c.t==='k')W=Math.min(c.N,W)}
     const lp=lastPlantDate(c,start); let late=false;
     if(lp){const LW=Math.floor((lp-start)/864e5/7); if(LW<0){W=0;late=true} else {
       // crops planted twice: bring the second planting forward so it still lands before the last date
       if(c.t==="k"&&c.N>1&&W>1&&(W-1)*I>LW&&LW>=R){I=Math.max(R,Math.floor(LW/R)*R);W=Math.min(c.N,Math.floor(LW/I)+1,Math.floor((SW-c.L)/I)+1)}
       else W=Math.min(W,Math.floor(LW/I)+1)}}
-    const pulses=[];
-    for(let k=0;k<W;k++){
-      const wk=k*I, hs=wk+c.L;
-      const he=c.t==='k'?(k<W-1?(k+1)*I+Math.ceil(c.L)-1:SW):(c.t==='s'?Math.ceil(hs)+I-1:wk+c.M-1);
-      pulses.push({k,wk,date:addW(start,wk),slot:k%slots,hs,he});
+    let pulses=[];
+    for(let k=0;k<W;k++) pulses.push({wk:k*I,P});
+    // an updated planting day replaces the plan for that day
+    for(const w in ACT){
+      const wa=+w, q=+ACT[w][c.id]||0, i=pulses.findIndex(p=>p.wk===wa);
+      if(i>=0){if(q>0) Object.assign(pulses[i],{P:q,act:true}); else pulses.splice(i,1)}
+      else if(q>0) pulses.push({wk:wa,P:q,act:true});
     }
-    rows.push({c,D,I,P,slots,W,pulses,late,lp});
+    pulses.sort((a,b)=>a.wk-b.wk);
+    pulses=pulses.map((p,k,a)=>{
+      const wk=p.wk, hs=wk+c.L;
+      const he=c.t==='k'?(k<a.length-1?a[k+1].wk+Math.ceil(c.L)-1:SW):(c.t==='s'?Math.ceil(hs)+I-1:wk+c.M-1);
+      return {k,wk,date:addW(start,wk),slot:k%slots,hs,he,P:p.P,act:!!p.act};
+    });
+    if(D0<=0&&!pulses.length) continue;
+    rows.push({c,D,I,P,slots,W:pulses.length,pulses,late,lp});
   }
   return {rows,SW,start,end};
 }
@@ -465,14 +489,14 @@ function pack(rows,SW){
   const rankNarrow=[...beds.keys()].sort((x,y)=>beds[x].wid-beds[y].wid||x-y);
   const events=[]; rows.forEach(r=>r.pulses.forEach(p=>events.push({r,p})));
   const segsFor=(c,P,wid)=>Math.max(1,Math.ceil(P/geo(c,wid).ppm/SEG-1e-9));
-  events.sort((a,b)=>a.p.wk-b.p.wk||(ROOMY.has(b.r.c.id)-ROOMY.has(a.r.c.id))||(b.r.P/geo(b.r.c,80).ppm)-(a.r.P/geo(a.r.c,80).ppm));
+  events.sort((a,b)=>a.p.wk-b.p.wk||(ROOMY.has(b.r.c.id)-ROOMY.has(a.r.c.id))||(b.p.P/geo(b.r.c,80).ppm)-(a.p.P/geo(a.r.c,80).ppm));
   const places=[], byPulse={};
   let overflow=0;
   for(const {r,p} of events){
     const c=r.c, w=p.wk, roomy=ROOMY.has(c.id), order=roomy?rankWide:rankNarrow;
     let best=null;
     order.forEach((bi,rank)=>{
-      const b=beds[bi]; const n=segsFor(c,r.P,b.wid); const L=b.segs.length; if(n>L) return;
+      const b=beds[bi]; const n=segsFor(c,p.P,b.wid); const L=b.segs.length; if(n>L) return;
       let run=0;
       for(let i=0;i<L;i++){
         run=b.segs[i].until<=w?run+1:0;
@@ -492,12 +516,12 @@ function pack(rows,SW){
       overflow++;
       const d=beds[order[0]]||{len:fallback.len,wid:fallback.wid,segs:{length:Math.round(fallback.len/SEG)}}; const b={len:d.len,wid:d.wid,extra:true,segs:Array.from({length:d.segs.length},()=>({until:0,fam:null,crop:null,pl:null}))};
       beds.push(b); rankWide.push(beds.length-1); rankNarrow.push(beds.length-1);
-      best={bi:beds.length-1,st:0,n:Math.min(b.segs.length,segsFor(c,r.P,b.wid)),same:0,used:0};
+      best={bi:beds.length-1,st:0,n:Math.min(b.segs.length,segsFor(c,p.P,b.wid)),same:0,used:0};
     }
     const b=beds[best.bi], g=geo(c,b.wid);
     const prevFams=[...new Set(b.segs.slice(best.st,best.st+best.n).map(x=>x.fam).filter(Boolean))];
     const prevPl=[...new Set(b.segs.slice(best.st,best.st+best.n).map(x=>x.pl).filter(Boolean))];
-    const pl={r,p,bed:best.bi,st:best.st,n:best.n,nRows:g.nRows,plants:r.P,until:busyUntil(r,p),prevFams,prevPl,next:[],sameFam:prevFams.includes(c.f)};
+    const pl={r,p,bed:best.bi,st:best.st,n:best.n,nRows:g.nRows,plants:p.P,until:busyUntil(r,p),prevFams,prevPl,next:[],sameFam:prevFams.includes(c.f)};
     prevPl.forEach(q=>q.next.push(pl));
     for(let j=best.st;j<best.st+best.n;j++) Object.assign(b.segs[j],{until:pl.until,fam:c.f,crop:c.id,pl});
     places.push(pl); byPulse[c.id+':'+p.k]=pl;
@@ -694,11 +718,12 @@ function renderCal(P,K){
   for(const wk of weeks){
     const items=by[wk], date=addW(P.start,wk), key=iso(date);
     const extra=wk===0?perNow:[];
-    const nP=items.filter(i=>i.r.c.m==='p').reduce((a,i)=>a+i.r.P,0)+extra.reduce((a,x)=>a+(+S.per[x.id]),0);
-    const nD=items.filter(i=>i.r.c.m==='d').reduce((a,i)=>a+i.r.P,0);
+    const nP=items.filter(i=>i.r.c.m==='p').reduce((a,i)=>a+i.p.P,0)+extra.reduce((a,x)=>a+(+S.per[x.id]),0);
+    const nD=items.filter(i=>i.r.c.m==='d').reduce((a,i)=>a+i.p.P,0);
+    const isAct=!!(S.actual&&S.actual[key]);
     const d=document.createElement('details'); d.className='day'+(S.done[key]?' done':'');
     if(!S.done[key] && openCount<2 && date>=addW(today(),-1)){d.open=true;openCount++}
-    d.innerHTML=`<summary><div class="day-h"><div><b>${fmtD(date)}</b> <small>${date.toLocaleDateString('he-IL',{weekday:'long'})}</small></div>
+    d.innerHTML=`<summary><div class="day-h"><div><b>${fmtD(date)}</b> <small>${date.toLocaleDateString('he-IL',{weekday:'long'})}</small>${isAct?'<span class="tag new">עודכן בפועל</span>':''}</div>
       <label class="chk"><input type="checkbox" id="done-${key}" ${S.done[key]?'checked':''}> בוצע</label></div>
       <div class="hint" style="margin:0">${nP?nP+' שתילים':''}${nP&&nD?' · ':''}${nD?nD+' נקודות זריעה':''} · ${items.length+extra.length} צמחים שונים <span class="more">▾ פירוט</span></div></summary><ul></ul>`;
     const ul=d.querySelector('ul');
@@ -708,15 +733,18 @@ function renderCal(P,K){
       const pl=K.byPulse[r.c.id+':'+p.k], loc=where(K,pl);
       const after=pl&&pl.prevPl.length?` · אחרי ${[...new Set(pl.prevPl.map(q=>q.r.c.n))].join(', ')}`:'';
       const li=document.createElement('li');
-      li.innerHTML=`${icon(r.c.id)}<span>${r.c.n}${r.c.m==='d'?' (זריעה)':''}</span><span><span class="q">${r.P}</span> <span class="loc">${loc}${after}</span></span>`;
+      li.innerHTML=`${icon(r.c.id)}<span>${r.c.n}${r.c.m==='d'?' (זריעה)':''}</span><span><span class="q">${p.P}</span> <span class="loc">${loc}${after}</span></span>`;
       ul.appendChild(li);
-      lines.push(`  ${r.c.n}${r.c.m==='d'?' (זריעה)':''}: ${r.P} – ${loc}${after}`);
+      lines.push(`  ${r.c.n}${r.c.m==='d'?' (זריעה)':''}: ${p.P} – ${loc}${after}`);
     }
     for(const x of extra){
       const li=document.createElement('li');
       li.innerHTML=`${icon(x.id)}<span>${x.n}</span><span><span class="q">${S.per[x.id]}</span> <span class="loc">מסביב לגינה</span></span>`;
       ul.appendChild(li); lines.push(`  ${x.n}: ${S.per[x.id]} – מסביב לגינה`);
     }
+    const eb=document.createElement('button'); eb.type='button'; eb.className='act-btn'; eb.textContent=isAct?'✎ תיקון מה שתלתי':'✎ שתלתי משהו אחר? עדכון';
+    eb.onclick=()=>{ul.hidden=true;eb.hidden=true;actualEditor(key,items,d,()=>{ul.hidden=false;eb.hidden=false})};
+    d.appendChild(eb);
     d.querySelector('label.chk').addEventListener('click',e=>e.stopPropagation());
     d.querySelector('input').addEventListener('change',e=>{S.done[key]=e.target.checked;save();d.classList.toggle('done',e.target.checked)});
     box.appendChild(d);
@@ -752,18 +780,42 @@ const HOW={
  pea:'קוטפים תרמילים צעירים כל 2–3 ימים, כדי שהצמח ימשיך להניב.'
 };
 let hvWeek=null;
+// edit what actually went into the ground on one planting day
+function actualEditor(key,items,host,onClose){
+  const cur={};
+  if(S.actual[key]) Object.assign(cur,S.actual[key]); else items.forEach(({r,p})=>cur[r.c.id]=p.P);
+  const box=document.createElement('div'); box.className='acted';
+  const close=()=>{box.remove();onClose&&onClose()};
+  const draw=()=>{
+    box.innerHTML=`<p class="hint" style="margin:0 0 8px">כמה שתלתם בפועל? המתכנן יסדר מחדש את הערוגות והקטיף לפי זה. התכנון לשתילות הבאות לא משתנה.</p><ul></ul>
+      <select aria-label="הוספת ירק" style="margin-top:8px;width:100%"><option value="">+ הוספת ירק ששתלתם</option>${CROPS.filter(c=>!(c.id in cur)).map(c=>`<option value="${c.id}">${c.n}</option>`).join('')}</select>
+      <div class="row" style="gap:6px;margin-top:10px"><button type="button" class="primary" data-a="save">שמירה</button><button type="button" data-a="cancel">ביטול</button>${S.actual[key]?'<button type="button" data-a="reset">חזרה לתכנון המקורי</button>':''}</div>`;
+    const ul=box.querySelector('ul');
+    Object.keys(cur).forEach(id=>{const c=CROPS.find(x=>x.id===id); if(!c) return; const li=document.createElement('li');
+      li.innerHTML=`${icon(id)}<span>${c.n}${c.m==='d'?' (זריעה)':''}</span><div class="step"><button type="button" data-d="-1" aria-label="פחות ${c.n}">−</button><output>${cur[id]}</output><button type="button" data-d="1" aria-label="עוד ${c.n}">+</button></div>`;
+      li.querySelectorAll('button').forEach(b=>b.onclick=()=>{cur[id]=Math.max(0,cur[id]+ +b.dataset.d);li.querySelector('output').textContent=cur[id]});
+      ul.appendChild(li)});
+    box.querySelector('select').onchange=e=>{if(e.target.value){cur[e.target.value]=1;draw()}};
+    box.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{const a=b.dataset.a;
+      if(a==='save'){S.actual[key]=Object.fromEntries(Object.entries(cur).filter(([,v])=>v>0));S.done[key]=true;save();render();toast('היומן עודכן לפי מה ששתלתם')}
+      else if(a==='reset'){delete S.actual[key];save();render();toast('חזרה לתכנון המקורי')}
+      else close()});
+  };
+  draw(); host.appendChild(box); return box;
+}
 function harvestAt(P,K,w){
   const by={};
   for(const r of P.rows){
     const firstEver=Math.min(...r.pulses.map(p=>Math.ceil(p.hs)));
     for(const p of r.pulses){
       if(w<Math.ceil(p.hs)||w>p.he) continue;
-      const o=by[r.c.id]||(by[r.c.id]={r,first:w===firstEver,locs:[],ending:false});
+      const o=by[r.c.id]||(by[r.c.id]={r,first:w===firstEver,locs:[],sc:[],ending:false});
+      o.sc.push(p.P/r.P);
       o.locs.push(where(K,K.byPulse[r.c.id+':'+p.k]));
       if(r.c.t!=='k'&&w===Math.floor(p.he)) o.ending=true;
     }
   }
-  return Object.values(by).map(o=>({...o,where:[...new Set(o.locs)].filter(Boolean).join(' | ')}));
+  return Object.values(by).map(o=>({...o,amt:r1(o.r.D*o.sc.reduce((a,x)=>a+x,0)/o.sc.length),where:[...new Set(o.locs)].filter(Boolean).join(' | ')}));
 }
 function renderGantt(P,K){
   const weeks=Math.max(P.SW+1,1);
@@ -800,7 +852,7 @@ function renderGantt(P,K){
   if(!P.rows.length&&!perItems.length){list.innerHTML='<div class="hint">בחרו ירקות בשלב 2.</div>'}
   else if(!items.length&&!perItems.length){list.innerHTML='<div class="hint">אין קטיף בשבוע הזה.</div>'}
   else list.innerHTML=items.map(o=>`<div class="hv-item">${icon(o.r.c.id)}
-     <div class="top"><b>${o.r.c.n}${o.first?'<span class="tag new">קטיף ראשון</span>':''}${o.ending?'<span class="tag last" title="השבוע האחרון לקטיף שתילה מסוימת. אחריו מפנים את המקום לשתילה הבאה">לפנות השבוע</span>':''}</b><span class="amt">${o.r.D} ${o.r.c.u}</span></div>
+     <div class="top"><b>${o.r.c.n}${o.first?'<span class="tag new">קטיף ראשון</span>':''}${o.ending?'<span class="tag last" title="השבוע האחרון לקטיף שתילה מסוימת. אחריו מפנים את המקום לשתילה הבאה">לפנות השבוע</span>':''}</b><span class="amt">${o.amt} ${o.r.c.u}</span></div>
      <div class="where">${o.where}</div>
      <div class="how">${HOW[o.r.c.id]||''}</div></div>`).join('')+perItems.map(({x,q,first})=>`<div class="hv-item">${icon(x.id)}
      <div class="top"><b>${x.n}${first?`<span class="tag new">${x.kind==='fl'?'פריחה':'קטיף ראשון'}</span>`:''}</b><span class="amt">${x.kind==='fl'?'בפריחה':'לפי הצורך'}</span></div>
@@ -853,7 +905,7 @@ async function zip(u8,dir){
 }
 const nz=o=>Object.fromEntries(Object.entries(o||{}).filter(([,v])=>+v>0));
 async function planToLink(){
-  const o={v:1,n:S.name,s:S.start,e:S.end,g:S.groups,r:+S.rhythm,q:nz(S.qty),p:nz(S.per),d:Object.keys(S.done||{}).filter(k=>S.done[k]),c:S.cm};
+  const o={v:1,n:S.name,s:S.start,e:S.end,g:S.groups,r:+S.rhythm,q:nz(S.qty),p:nz(S.per),d:Object.keys(S.done||{}).filter(k=>S.done[k]),c:S.cm,a:S.actual};
   const raw=new TextEncoder().encode(JSON.stringify(o));
   const z=await zip(raw,'in').catch(()=>null);
   const code=z?'z'+b64u.enc(z):'j'+b64u.enc(raw);
@@ -868,6 +920,7 @@ async function linkToPlan(code){
   for(const k in o.q||{}) if(k in st.qty) st.qty[k]=+o.q[k];
   for(const k in o.p||{}) if(k in st.per) st.per[k]=+o.p[k];
   (o.d||[]).forEach(k=>st.done[k]=true);
+  if(o.a&&typeof o.a==='object') st.actual=o.a;
   return st;
 }
 function bar(msg,yes,no,onYes,onNo,text){
@@ -884,7 +937,20 @@ $('btnSave').addEventListener('click',async()=>{
   try{await navigator.clipboard.writeText(url);toast('הקישור הועתק. שמרו אותו בוואטסאפ או בפתקים');}
   catch(e){bar('<b>הקישור לתכנון שלכם</b><br>העתיקו אותו ושמרו בוואטסאפ או בפתקים. פתיחה שלו בכל מכשיר טוענת את התכנון.','', 'סגור',null,null,url)}
 });
+// #actual=<code>: a list of what was planted, merged into the plan already on this device
+async function checkLinkActual(){
+  const m=location.hash.match(/actual=([A-Za-z0-9_-]+)/); if(!m) return false;
+  const clean=()=>history.replaceState(null,'',location.pathname+location.search);
+  let o; try{const kind=m[1][0],bytes=b64u.dec(m[1].slice(1));o=JSON.parse(new TextDecoder().decode(kind==='z'?await zip(bytes,'out'):bytes))}catch(e){clean();toast('הקישור פגום');return true}
+  const days=Object.keys(o||{}).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k));
+  if(!days.length){clean();return true}
+  const names=days.map(k=>fmtD(new Date(k+'T00:00'))).join(', ');
+  const apply=()=>{for(const k of days){const kk=actKey(k);S.actual[kk]={};for(const id in o[k]) if(CROPS.some(c=>c.id===id)&&+o[k][id]>0) S.actual[kk][id]=+o[k][id];S.done[kk]=true}save();init();clean();toast('היומן עודכן לפי מה ששתלתם')};
+  bar(`<b>עדכון שתילה בפועל (${names})</b><br>היומן והערוגות יסתדרו לפי מה ששתלתם. שאר התכנון שלכם נשאר.`,'עדכן את התכנון שלי','לא עכשיו',apply,clean);
+  return true;
+}
 async function checkLinkPlan(){
+  if(await checkLinkActual()) return;
   const m=location.hash.match(/plan=([A-Za-z0-9_-]+)/); if(!m) return;
   const clean=()=>history.replaceState(null,'',location.pathname+location.search);
   let st; try{st=await linkToPlan(m[1])}catch(e){clean();toast('הקישור פגום ולא ניתן לטעון ממנו תכנון');return}
@@ -893,6 +959,16 @@ async function checkLinkPlan(){
   if(!hasLocal){apply();return}
   bar(`<b>נפתח קישור עם תכנון${st.name?' "'+st.name.replace(/[<>&]/g,'')+'"':''}.</b><br>לטעון אותו? הוא יחליף את התכנון ששמור כרגע במכשיר הזה.`,'טען את התכנון מהקישור','השאר את התכנון שלי',apply,clean);
 }
+$('actDate').value=iso(today());
+$('btnActAdd').addEventListener('click',()=>{
+  const v=$('actDate').value; if(!v) return;
+  const st=new Date(S.start+'T00:00'), w=actWeek(v,st), P=plan();
+  if(w<0||w>=P.SW){toast('התאריך מחוץ לעונה שהגדרתם');return}
+  const key=actKey(v), host=$('actNew'); host.innerHTML='';
+  const items=[]; P.rows.forEach(r=>r.pulses.forEach(p=>{if(p.wk===w) items.push({r,p})}));
+  const panel=document.createElement('div'); panel.className='day'; panel.innerHTML=`<div class="day-h"><b>${fmtD(addW(st,w))}</b></div>`; host.appendChild(panel);
+  actualEditor(key,items,panel,()=>host.innerHTML='');
+});
 bindInputs();init();checkLinkPlan();
 window.addEventListener('hashchange',checkLinkPlan);
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>render());
