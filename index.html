@@ -656,13 +656,13 @@ function renderBeds(P,K){
   const act=K.places.filter(pl=>pl.p.wk<=w&&w<pl.until);
   $('mapSub').textContent=(w===nowW?'השבוע · ':'')+`שבוע ${w+1} · בשימוש ${r1(act.reduce((a,pl)=>a+pl.n*SEG,0))} מ׳`;
   $('mapPrev').disabled=w<=0; $('mapNext').disabled=w>=weeks-1;
-  const box=$('beds'); box.innerHTML='';
+  const box=$('beds'); box.after($('detail')); box.innerHTML='';
   const pad=4, NS='http://www.w3.org/2000/svg';
   const mk=(tag,attrs,parent)=>{const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e};
   K.beds.forEach((b,i)=>{
     const here=act.filter(pl=>pl.bed===i).sort((a,b)=>a.st-b.st);
     const usedM=here.reduce((a,pl)=>a+pl.n*SEG,0), free=b.len-usedM;
-    const div=document.createElement('div'); div.className='bed'+(b.extra?' over':'');
+    const div=document.createElement('div'); div.className='bed'+(b.extra?' over':''); div.dataset.bed=i;
     div.innerHTML=`<h3><span>ערוגה ${i+1} <small style="font-weight:600">${r1(b.len)} מ׳ × ${Math.round(b.wid)} ס״מ</small>${b.extra?' · אין לה מקום בגינה':''}</span><span>${here.length?(free>0.05?'פנוי '+r1(free)+' מ׳':'מלאה'):'פנויה'}</span></h3>`;
     const Wcm=b.wid, Lcm=b.len*100;
     const svg=mk('svg',{viewBox:`${-pad} ${-pad} ${Lcm+pad*2} ${Wcm+pad*2+18}`,role:'img','aria-label':`ערוגה ${i+1}`});
@@ -703,8 +703,10 @@ function showDetail(P,K){
   box.querySelectorAll('.slot').forEach(g=>{g.classList.toggle('hl',g.dataset.key===selected);g.classList.toggle('same',!!crop&&g.dataset.key.split(':')[0]===crop)});
   box.querySelectorAll('.chip').forEach(ch=>ch.classList.toggle('sel',!!crop&&ch.dataset.key.split(':')[0]===crop));
   const el=$('detail');
-  if(!selected){el.textContent='לחצו על ירק בערוגה כדי לראות מתי הוא נשתל ומה בא אחריו.';return}
+  if(!selected){box.after(el);el.textContent='לחצו על ירק בערוגה כדי לראות מתי הוא נשתל ומה בא אחריו.';return}
   const pl=K.byPulse[selected]; if(!pl){selected=null;return showDetail(P,K)}
+  // show the details right under the bed the plant is in
+  const bedEl=box.querySelector(`.bed[data-bed="${pl.bed}"]`); if(bedEl) bedEl.appendChild(el); else box.after(el);
   const c=pl.r.c, verb=c.m==='d'?'נזרע':'נשתל';
   const before=pl.prevPl.length?'לפניו: '+pl.prevPl.map(q=>`${q.r.c.n} (${FAM[q.r.c.f].n})`).join(', ')+(pl.sameFam?' <span class="rot bad">אותה משפחה</span>':' <span class="rot ok">↻ משפחה אחרת</span>'):'אדמה שעוד לא גדל בה כלום העונה.';
   const after=pl.next.length?'אחריו: '+pl.next.map(q=>`${q.r.c.n} (${FAM[q.r.c.f].n}) ב-${fmtD(q.p.date)}`).join(', ')+'.':'אחריו המקום נשאר פנוי עד סוף העונה.';
