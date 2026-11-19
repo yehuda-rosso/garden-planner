@@ -192,6 +192,7 @@ button.ghost{background:transparent}
 .ask-log .a.err{color:var(--warn)}
 .ask-f{display:flex;gap:6px;align-items:end}
 .ask-f textarea{min-height:44px;font-size:16px;flex:1;resize:vertical}
+.paste-link{margin-top:12px;display:grid;gap:6px}
 .cal-add{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 12px}
 .cal-add input{max-width:11em}
 .hv-soon{font-size:13.5px;color:var(--muted)}
@@ -255,6 +256,10 @@ textarea{width:100%;min-height:120px;font:inherit;font-size:13px;background:var(
     <div class="g-row g-lbl" aria-hidden="true"><span>כמה</span><span>אורך (מ׳)</span><span>רוחב (ס״מ)</span><span></span></div>
     <div id="groups"></div>
     <button type="button" id="addGroup" class="ghost">+ הוסף גודל ערוגה</button>
+  </div>
+  <div class="panel paste-link">
+    <label class="f" for="pasteLink">יש לכם קישור שמור לתכנון? הדביקו אותו כאן</label>
+    <div class="row" style="gap:6px;flex-wrap:nowrap"><input id="pasteLink" type="text" dir="ltr" placeholder="https://…#plan=…" style="flex:1;min-width:0;font-size:16px"><button type="button" id="btnPasteLink">טען</button></div>
   </div>
 </section>
 
@@ -1034,8 +1039,8 @@ $('btnSave').addEventListener('click',async()=>{
   catch(e){bar('<b>הקישור לתכנון שלכם</b><br>העתיקו אותו ושמרו בוואטסאפ או בפתקים. פתיחה שלו בכל מכשיר טוענת את התכנון.','', 'סגור',null,null,url)}
 });
 // #actual=<code>: a list of what was planted, merged into the plan already on this device
-async function checkLinkActual(){
-  const m=location.hash.match(/actual=([A-Za-z0-9_-]+)/); if(!m) return false;
+async function checkLinkActual(src){
+  const m=(src||location.hash).match(/actual=([A-Za-z0-9_-]+)/); if(!m) return false;
   const clean=()=>history.replaceState(null,'',location.pathname+location.search);
   let o; try{const kind=m[1][0],bytes=b64u.dec(m[1].slice(1));o=JSON.parse(new TextDecoder().decode(kind==='z'?await zip(bytes,'out'):bytes))}catch(e){clean();toast('הקישור פגום');return true}
   const days=Object.keys(o||{}).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k));
@@ -1045,9 +1050,9 @@ async function checkLinkActual(){
   bar(`<b>עדכון השתילים שיש לכם (${names})</b><br>היומן והערוגות יסתדרו לפי השתילים האלה. שאר התכנון שלכם נשאר.`,'עדכן את התכנון שלי','לא עכשיו',apply,clean);
   return true;
 }
-async function checkLinkPlan(){
-  if(await checkLinkActual()) return;
-  const m=location.hash.match(/plan=([A-Za-z0-9_-]+)/); if(!m) return;
+async function checkLinkPlan(src){
+  if(await checkLinkActual(src)) return;
+  const m=(src||location.hash).match(/plan=([A-Za-z0-9_-]+)/); if(!m) return;
   const clean=()=>history.replaceState(null,'',location.pathname+location.search);
   let st; try{st=await linkToPlan(m[1])}catch(e){clean();toast('הקישור פגום ולא ניתן לטעון ממנו תכנון');return}
   const hasLocal=HAD_SAVED&&Object.values(S.qty).some(v=>+v>0);
@@ -1133,7 +1138,8 @@ document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',
 bindInputs();init();
 {let t=null;try{t=localStorage.getItem(KEY+'-tab')}catch(e){} showTab(t||(HAD_SAVED&&Object.values(S.qty).some(v=>+v>0)?3:1))}
 checkLinkPlan();
-window.addEventListener('hashchange',checkLinkPlan);
+$('btnPasteLink').addEventListener('click',async()=>{const v=$('pasteLink').value.trim(); if(!/(plan|actual)=[A-Za-z0-9_-]+/.test(v)){toast('זה לא נראה כמו קישור של המתכנן');return} await checkLinkPlan(v); $('pasteLink').value=''});
+window.addEventListener('hashchange',()=>checkLinkPlan());
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>render());
 new MutationObserver(()=>render()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 </script>
