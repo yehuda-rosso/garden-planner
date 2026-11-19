@@ -37,6 +37,13 @@ h2 .n{font-family:var(--body);font-weight:700;font-size:13px;color:var(--panel);
 header{padding-block:24px 8px;display:flex;flex-wrap:wrap;gap:8px 20px;align-items:end;justify-content:space-between}
 header p{margin:4px 0 0;color:var(--muted);max-width:60ch}
 section{margin-top:28px}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:var(--bg);border-radius:10px;padding:3px}
+.tabs button{border:0;background:none;border-radius:8px;padding:6px 4px;font-size:14px;font-weight:600;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:5px;line-height:1.15;min-height:40px}
+.tabs button .n{font-size:11px;font-weight:700;width:18px;height:18px;border-radius:50%;display:inline-grid;place-items:center;background:var(--line);color:var(--ink);flex:none}
+.tabs button[aria-selected="true"]{background:var(--panel);color:var(--ink);box-shadow:0 1px 4px -1px rgba(0,0,0,.25)}
+.tabs button[aria-selected="true"] .n{background:var(--leaf);color:var(--panel)}
+.tab-next{margin-top:24px;display:flex;justify-content:space-between;gap:8px}
+@media (max-width:520px){.tabs button{font-size:12.5px;flex-direction:column;gap:2px;padding:5px 2px}}
 .hint{color:var(--muted);font-size:14px;margin:6px 0 12px}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
 label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);font-weight:600}
@@ -150,12 +157,17 @@ button.ghost{background:transparent}
 .hv-strip svg{display:block;cursor:pointer}
 .hv-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:6px}
 .hv-item{display:grid;grid-template-columns:36px 1fr;gap:2px 10px;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
-.hv-item .ic{width:36px;height:36px;grid-row:span 3}
+.hv-item .ic{width:36px;height:36px;grid-row:span 5}
 .hv-item .top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
 .hv-item .top b{font-size:15.5px}
 .hv-item .amt{font-weight:700;color:var(--leaf);white-space:nowrap}
 .hv-item .where{font-size:12.5px;color:var(--muted)}
-.hv-item .how{font-size:12.5px;color:var(--ink);opacity:.85;line-height:1.35}
+.hv-item .how{font-size:13px;color:var(--ink);opacity:.9;line-height:1.4}
+.hv-item .when{font-size:12px;color:var(--muted);line-height:1.35}
+.hk{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:99px;margin:2px 0}
+.hk.once{background:var(--warn-soft);color:var(--warn)}
+.hk.regrow{background:var(--leaf-soft);color:var(--ok)}
+.hk.cont{background:var(--line);color:var(--ink)}
 .tag{display:inline-block;font-size:11px;font-weight:700;padding:0 6px;border-radius:99px;margin-inline-start:4px;vertical-align:1px}
 .tag.new{background:var(--leaf-soft);color:var(--ok)}
 .tag.last{background:var(--warn-soft);color:var(--warn)}
@@ -201,8 +213,14 @@ textarea{width:100%;min-height:120px;font:inherit;font-size:13px;background:var(
   </div>
 </header>
 
-<div class="cap" id="cap" aria-live="polite">
-  <div class="cap-top">
+<div class="cap" id="cap">
+  <nav class="tabs" role="tablist" aria-label="שלבי התכנון">
+    <button type="button" role="tab" data-tab="1"><span class="n">1</span>הגדרות</button>
+    <button type="button" role="tab" data-tab="2"><span class="n">2</span>ירקות</button>
+    <button type="button" role="tab" data-tab="3"><span class="n">3</span>ערוגות ושתילה</button>
+    <button type="button" role="tab" data-tab="4"><span class="n">4</span>קטיף</button>
+  </nav>
+  <div class="cap-top" aria-live="polite">
     <span>צריך <b id="capNeed">0</b> מ׳ ערוגה</span>
     <span>יש <b id="capHave">0</b> מ׳</span>
     <span>ימי שתילה: <b id="capDays">0</b></span>
@@ -211,8 +229,8 @@ textarea{width:100%;min-height:120px;font:inherit;font-size:13px;background:var(
   <div class="meter" id="meter" aria-hidden="true"></div>
 </div>
 
-<section>
-  <h2><span class="n">1</span>הגינה שלי</h2>
+<section data-tab="1">
+  <h2>הגינה שלי</h2>
   <p class="hint">מספר השורות נקבע לפי רוחב הערוגה. ירקות קטנים אפשר לצופף עד 10%, ולכן הם נשתלים קודם בערוגות הצרות (גם ב-74 ס״מ נכנסות 4 שורות). ירקות שאוהבים מרווח (שומר, כרוב, כרובית, ברוקולי, קייל, מנגולד, חסה ערבית, קולורבי) מקבלים קודם את הערוגות הרחבות ולא מצופפים. ערוגה רחבה יותר מכניסה עוד שורות, ולכן צריך פחות אורך.</p>
   <div class="panel grid-set">
     <label class="f">שם הגינה<input id="gName" type="text" placeholder="הגינה של…"></label>
@@ -228,16 +246,16 @@ textarea{width:100%;min-height:120px;font:inherit;font-size:13px;background:var(
   </div>
 </section>
 
-<section>
-  <h2><span class="n">2</span>כמה רוצים בשבוע</h2>
+<section data-tab="2">
+  <h2>כמה רוצים בשבוע</h2>
   <p class="hint">0 = לא מגדלים. בגינה קטנה עדיף עלים מהירים על פני כרוב, כרובית וברוקולי שתופסים הרבה מקום. לכל ירק יש מועד שתילה אחרון בחורף. אחריו הוא עולה לפריחה או לא יוצר ראש בחום של האביב, ולכן היומן מפסיק לשתול אותו, ומופיעה אזהרה אם בוחרים ירק שהמועד שלו כבר עבר.</p>
   <div id="cropList"></div>
   <div class="per-head"><b>מסביב לגינה</b> <span class="hint" style="margin:0">רב-שנתיים ופרחי חורף לשולי הגינה. הם לא נכנסים לחישוב הערוגות, אבל מופיעים ביומן ובקטיף.</span></div>
   <div id="perList"></div>
 </section>
 
-<section>
-  <h2><span class="n">3</span>מפת הערוגות</h2>
+<section data-tab="3">
+  <h2>מפת הערוגות</h2>
   <p class="hint">כל ציור הוא צמח במקום שלו בערוגה. כשירק נקטף ומתפנה מקום, השתילה הבאה שם היא ממשפחה אחרת, כדי לגוון את מה שהקרקע נותנת ומקבלת. בחרו שבוע כדי לראות מה גדל באותו זמן. פס ירוק מתחת לערוגה = שותלים שם השבוע. המרחקים ביומן (למשל 40–80 ס״מ) נמדדים מהקצה הימני של הערוגה כפי שהיא מצוירת. עיגול מקווקו = נקודת זריעה. לחיצה על ירק מראה מתי הוא נשתל ומה בא אחריו.</p>
   <div class="hv-nav map-nav">
     <button type="button" id="mapPrev" aria-label="שבוע קודם">→</button>
@@ -249,8 +267,8 @@ textarea{width:100%;min-height:120px;font:inherit;font-size:13px;background:var(
   <div class="detail panel" id="detail">לחצו על ירק בערוגה כדי לראות מתי שותלים אותו.</div>
 </section>
 
-<section>
-  <h2><span class="n">4</span>יומן שתילה</h2>
+<section data-tab="3">
+  <h2>יומן שתילה</h2>
   <div class="row" style="justify-content:space-between;margin:6px 0 12px">
     <p class="hint" style="margin:0">מה קונים במשתלה בכל ביקור, ואיפה שותלים כל דבר.</p>
     <button id="btnCopy" type="button">העתק את היומן כטקסט</button>
@@ -261,8 +279,8 @@ textarea{width:100%;min-height:120px;font:inherit;font-size:13px;background:var(
   <textarea id="copyBox" hidden readonly></textarea>
 </section>
 
-<section>
-  <h2><span class="n">5</span>מה קוטפים השבוע</h2>
+<section data-tab="4">
+  <h2>מה קוטפים השבוע</h2>
   <p class="hint">בוחרים שבוע (בחצים או בלחיצה על עמודה) ורואים מה מוכן לקטיף, מאיזו ערוגה, כמה ואיך קוטפים. גובה העמודה = כמה ירקות בקטיף באותו שבוע. "לפנות השבוע" = הקטיף האחרון של שתילה מסוימת, ואחריו המקום עובר לשתילה ממשפחה אחרת.</p>
   <div class="panel hv">
     <div class="hv-nav">
@@ -276,8 +294,8 @@ textarea{width:100%;min-height:120px;font:inherit;font-size:13px;background:var(
   </div>
 </section>
 
-<section>
-  <h2><span class="n">6</span>קומפוסט לערוגות חדשות</h2>
+<section data-tab="1">
+  <h2>קומפוסט לערוגות חדשות</h2>
   <div class="panel compost">
     <label class="f">שיטת הקמה<select id="cMethod">
       <option value="deep">חיפוי קומפוסט עמוק (10–15 ס״מ)</option>
@@ -290,6 +308,7 @@ textarea{width:100%;min-height:120px;font:inherit;font-size:13px;background:var(
   <p class="hint" id="cNote"></p>
 </section>
 
+<div class="tab-next" id="tabNext"></div>
 <footer>
   נתוני הגידול לקוחים מחומרי הקורס "גן הירק היצרני". נתונים המסומנים ≈ הם הערכה שעוד לא אושרה בקורס. התכנון נשמר אוטומטית בדפדפן שלכם. כדי לגבות אותו או לפתוח במכשיר אחר, לחצו "שמור תכנון כקישור" ושמרו את הקישור.
 </footer>
@@ -337,6 +356,17 @@ const CROPS = [
  {id:'pea',n:'אפונת שלג',f:'leg',u:'סלסלות',t:'k',m:'p',r:1,sp:20,ppu:5,L:10,N:2,d:0,est:1},
 ];
 const TYPE = {s:'קטיף בודד',c:'כמה חיתוכים',k:'קטיף מתמשך'};
+// how each crop is harvested: one-time pull, one-time cut, regrows after cutting, or keeps growing
+const HK={pull:['חד-פעמי · שולפים את כל הצמח','once'],head:['חד-פעמי · חותכים את כל הצמח','once'],regrow:['חוזר לצמוח אחרי חיתוך','regrow'],leaves:['מתמשך · קוטפים עלים והצמח ממשיך לגדול','cont'],fruit:['מתמשך · ממשיך להניב','cont']};
+const KIND={carrot:'pull',radish:'pull',turnip:'pull',beet:'pull',fennel:'head',kohlrabi:'head',bokchoy:'head',cabbage:'head',cauli:'head',broccoli:'head',lettuce:'head',
+ lettuce2:'regrow',parsley:'regrow',cilantro:'regrow',dill:'regrow',rocket:'regrow',mizuna:'regrow',
+ celery:'leaves',kale:'leaves',chard:'leaves',spinach:'leaves',scallion:'leaves',leek:'leaves',strawberry:'fruit',pea:'fruit'};
+function harvestPlan(r){
+  const c=r.c;
+  if(c.t==='s') return `כל שתילה מוכנה כ-${Math.round(c.L)} שבועות אחרי השתילה. קוטפים אותה במשך ${r.I===1?'שבוע':r.I+' שבועות'}, מהגדולים לקטנים, ואז מפנים את המקום.`;
+  if(c.t==='c') return `מתחילים לחתוך כ-${Math.round(c.L)} שבועות אחרי השתילה. כל צמח נותן כ-${Math.round(c.cuts)} חיתוכים, אחד כל 1–2 שבועות, ואז מפנים.`;
+  return `מתחילים לקטוף כ-${Math.round(c.L)} שבועות אחרי השתילה, וממשיכים כל שבוע ${c.N>1?'עד שהשתילה הבאה מחליפה אותו':'עד סוף העונה'}.`;
+}
 
 
 // ---------- vegetable drawings (32x32) ----------
@@ -762,29 +792,29 @@ function renderCal(P,K){
 }
 
 const HOW={
- parsley:'חותכים את הגבעולים החיצוניים כ-3 ס״מ מעל הקרקע. הלב ממשיך לצמוח.',
- cilantro:'חותכים כ-5 ס״מ מעל הקרקע וחוזרים כשמתחדש. כשמתחיל לפרוח, מפנים.',
- dill:'חותכים את הענפים העליונים, ומשאירים את הצמח להתחדש.',
- rocket:'חותכים את העלים כ-3 ס״מ מעל הקרקע. יתחדש עוד 2–3 פעמים.',
- mizuna:'חותכים כ-3 ס״מ מעל הקרקע. יתחדש עוד פעמיים-שלוש.',
- fennel:'חותכים בבסיס כשהפקעת שמנה וצחורה, לפני שהיא מתארכת.',
- carrot:'שולפים קודם את העבים ביותר. את הקטנים משאירים לשבוע הבא.',
- celery:'קוטפים גבעולים חיצוניים, ומשאירים את הלב.',
- radish:'שולפים כשהשורש בגודל כדור פינג-פונג. מאוחר יותר הוא מתעצה.',
- turnip:'שולפים כשהשורש בקוטר 5–7 ס״מ.',
- kohlrabi:'חותכים מתחת לפקעת כשהיא בגודל כדור טניס.',
- bokchoy:'חותכים את כל הראש בבסיס, או קוטפים עלים חיצוניים.',
- kale:'קוטפים עלים תחתונים וחיצוניים. הצמח ממשיך לצמוח מלמעלה.',
- cabbage:'חותכים בבסיס כשהראש קשה ודחוס ללחיצה.',
- cauli:'חותכים כשהתפרחת סגורה והדוקה, לפני שהיא נפתחת.',
- broccoli:'חותכים את התפרחת המרכזית כשהניצנים סגורים. אחר כך יצמחו ענפי צד.',
- beet:'שולפים כשהסלק בגודל כדור טניס. גם העלים טובים למאכל.',
- chard:'קוטפים עלים חיצוניים בבסיס, ומשאירים 4–5 עלים במרכז.',
- spinach:'קוטפים עלים חיצוניים, ומשאירים את הלב.',
- lettuce:'חותכים את כל הראש, או קוטפים עלים חיצוניים לאורך כמה שבועות.',
- lettuce2:'חותכים כ-3 ס״מ מעל הקרקע, והחסה תצמח שוב 2–4 פעמים.',
- scallion:'חותכים את העלים לפי הצורך, או שולפים צמח שלם.',
- leek:'שולפים אחת-אחת לפי הצורך, מהעבות ביותר.',
+ parsley:'חותכים את הגבעולים החיצוניים כ-3 ס״מ מעל הקרקע, בסכין או מספריים. משאירים את הלב והגבעולים הצעירים במרכז, והצמח ממשיך לצמוח.',
+ cilantro:'חותכים כ-5 ס״מ מעל הקרקע, ומחכים שבוע-שבועיים להתחדשות. כשמופיע גבעול פריחה, העלים מתקשים. אז מפנים.',
+ dill:'חותכים את הענפים העליונים, ומשאירים את הגבעול הראשי עם כמה עלים כדי שיתחדש. כשמופיעות מטריות פרחים, מפנים.',
+ rocket:'חותכים את כל העלים כ-3 ס״מ מעל הקרקע, בבוקר. אחרי 1–2 שבועות יש עלים חדשים. אחרי 2–3 חיתוכים או כשמתחיל לפרוח, מפנים.',
+ mizuna:'חותכים כ-3 ס״מ מעל הקרקע. מתחדש תוך שבוע-שבועיים, עוד פעמיים-שלוש.',
+ fennel:'חותכים בבסיס, צמוד לקרקע, כשהפקעת שמנה וצחורה ובגודל אגרוף. אם מחכים, היא מתארכת ועולה לפריחה. השורש נשאר באדמה ומתפרק.',
+ carrot:'משקים יום לפני, ושולפים בעדינות מהבסיס. קודם את העבים ביותר. את הקטנים משאירים לשבוע הבא.',
+ celery:'קוטפים גבעולים חיצוניים בבסיס, כמה מכל צמח. משאירים את הלב, והצמח ממשיך לצמוח לאורך העונה.',
+ radish:'שולפים כשהשורש בגודל כדור פינג-פונג, כ-3–4 שבועות אחרי השתילה. מאוחר יותר הוא נסדק ומתעצה.',
+ turnip:'שולפים כשהשורש בקוטר 5–7 ס״מ. גדול יותר נהיה סיבי. העלים הצעירים אכילים.',
+ kohlrabi:'חותכים מתחת לפקעת כשהיא בגודל כדור טניס. גדולה יותר מתעצה. מסירים את העלים ומקלפים.',
+ bokchoy:'חותכים את כל הראש בבסיס. אפשר גם לקטוף עלים חיצוניים לאורך כמה שבועות לפני כן.',
+ kale:'קוטפים עלים תחתונים וחיצוניים כשהם בגודל כף יד, 3–4 מכל צמח בשבוע. משאירים את הציצה העליונה, והצמח ממשיך לצמוח לגובה.',
+ cabbage:'חותכים בבסיס כשהראש קשה ודחוס ללחיצה. אם מחכים יותר מדי, הוא נסדק. אחרי הקטיף מפנים את הגבעול.',
+ cauli:'חותכים כשהתפרחת סגורה והדוקה, לפני שהיא נפתחת או מצהיבה. כמה עלים חיצוניים שמכסים אותה שומרים עליה לבנה.',
+ broccoli:'חותכים את התפרחת המרכזית עם 10 ס״מ גבעול כשהניצנים סגורים וירוקים. אחר כך צומחים ענפי צד קטנים לקטיף נוסף.',
+ beet:'שולפים כשהסלק בגודל כדור טניס, קודם את הגדולים. העלים הצעירים טובים לסלט או לבישול.',
+ chard:'קוטפים עלים חיצוניים בבסיס, בתנועת סיבוב או בסכין. משאירים 4–5 עלים במרכז, והצמח ממשיך לצמוח חודשים.',
+ spinach:'קוטפים עלים חיצוניים בבסיס, ומשאירים את הלב. כשמתחיל להתארך לפריחה, קוטפים הכל ומפנים.',
+ lettuce:'חותכים את כל הראש בבסיס כשהוא מלא, בבוקר כשהוא פריך. מפנים את השורש.',
+ lettuce2:'חותכים כ-3 ס״מ מעל הקרקע, או קוטפים עלים חיצוניים. החסה מתחדשת עוד 2–4 פעמים, עד שהיא מתמררת ועולה לפריחה.',
+ scallion:'חותכים את העלים כ-3 ס״מ מעל הקרקע, והם צומחים מחדש. אפשר גם לשלוף צמח שלם לפי הצורך.',
+ leek:'שולפים אחת-אחת לפי הצורך, מהעבה ביותר. אפשר להשאיר אותן באדמה שבועות. הן לא מתקלקלות.',
  strawberry:'קוטפים פרי אדום לגמרי יחד עם העוקץ, כל יומיים-שלושה, בבוקר. חיפוי קש מתחת לצמחים שומר על הפירות נקיים.',
  pea:'קוטפים תרמילים צעירים כל 2–3 ימים, כדי שהצמח ימשיך להניב.'
 };
@@ -867,7 +897,9 @@ function renderGantt(P,K){
   else list.innerHTML=items.map(o=>`<div class="hv-item">${icon(o.r.c.id)}
      <div class="top"><b>${o.r.c.n}${o.first?'<span class="tag new">קטיף ראשון</span>':''}${o.ending?'<span class="tag last" title="השבוע האחרון לקטיף שתילה מסוימת. אחריו מפנים את המקום לשתילה הבאה">לפנות השבוע</span>':''}</b><span class="amt">${o.amt} ${o.r.c.u}</span></div>
      <div class="where">${o.where}</div>
-     <div class="how">${HOW[o.r.c.id]||''}</div></div>`).join('')+perItems.map(({x,q,first})=>`<div class="hv-item">${icon(x.id)}
+     ${KIND[o.r.c.id]?`<div><span class="hk ${HK[KIND[o.r.c.id]][1]}">${HK[KIND[o.r.c.id]][0]}</span></div>`:''}
+     <div class="how">${HOW[o.r.c.id]||''}</div>
+     <div class="when">${harvestPlan(o.r)}</div></div>`).join('')+perItems.map(({x,q,first})=>`<div class="hv-item">${icon(x.id)}
      <div class="top"><b>${x.n}${first?`<span class="tag new">${x.kind==='fl'?'פריחה':'קטיף ראשון'}</span>`:''}</b><span class="amt">${x.kind==='fl'?'בפריחה':'לפי הצורך'}</span></div>
      <div class="where">מסביב לגינה · ${q} צמחים</div>
      <div class="how">${x.how}</div></div>`).join('');
@@ -982,7 +1014,23 @@ $('btnActAdd').addEventListener('click',()=>{
   const panel=document.createElement('div'); panel.className='day'; panel.innerHTML=`<div class="day-h"><b>${fmtD(addW(st,w))}</b></div>`; host.appendChild(panel);
   actualEditor(key,items,panel,()=>host.innerHTML='');
 });
-bindInputs();init();checkLinkPlan();
+// ---------- screens ----------
+const TABS={1:'הגדרות',2:'בחירת ירקות',3:'ערוגות ושתילה',4:'קטיף'};
+let tab=1;
+function showTab(n,scroll){
+  tab=Math.min(4,Math.max(1,+n||1));
+  document.querySelectorAll('section[data-tab]').forEach(sec=>sec.hidden=sec.dataset.tab!=String(tab));
+  document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab==String(tab)));
+  const nx=$('tabNext'), prev=tab>1?`<button type="button" class="ghost" data-go="${tab-1}">→ ${TABS[tab-1]}</button>`:'<span></span>', next=tab<4?`<button type="button" class="primary" data-go="${tab+1}">${TABS[tab+1]} ←</button>`:'';
+  nx.innerHTML=prev+next; nx.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>showTab(b.dataset.go,true));
+  try{localStorage.setItem(KEY+'-tab',tab)}catch(e){}
+  render();
+  if(scroll) window.scrollTo({top:0,behavior:'instant'});
+}
+document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab,true)));
+bindInputs();init();
+{let t=null;try{t=localStorage.getItem(KEY+'-tab')}catch(e){} showTab(t||(HAD_SAVED&&Object.values(S.qty).some(v=>+v>0)?3:1))}
+checkLinkPlan();
 window.addEventListener('hashchange',checkLinkPlan);
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>render());
 new MutationObserver(()=>render()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
