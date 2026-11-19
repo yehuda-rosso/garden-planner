@@ -255,7 +255,7 @@ textarea{width:100%;min-height:120px;font:inherit;font-size:13px;background:var(
     <p class="hint" style="margin:0">מה קונים במשתלה בכל ביקור, ואיפה שותלים כל דבר.</p>
     <button id="btnCopy" type="button">העתק את היומן כטקסט</button>
   </div>
-  <div class="cal-add"><span class="hint" style="margin:0">שתלתם ביום שלא מופיע ביומן?</span><input type="date" id="actDate" aria-label="תאריך השתילה"><button type="button" id="btnActAdd">עדכון שתילה בתאריך הזה</button></div>
+  <div class="cal-add"><span class="hint" style="margin:0">שתילה ביום שלא מופיע ביומן?</span><input type="date" id="actDate" aria-label="תאריך השתילה"><button type="button" id="btnActAdd">עדכון שתילה בתאריך הזה</button></div>
   <div id="actNew"></div>
   <div class="cal" id="cal"></div>
   <textarea id="copyBox" hidden readonly></textarea>
@@ -732,7 +732,7 @@ function renderCal(P,K){
     const isAct=!!(S.actual&&S.actual[key]);
     const d=document.createElement('details'); d.className='day'+(S.done[key]?' done':'');
     if(!S.done[key] && openCount<2 && date>=addW(today(),-1)){d.open=true;openCount++}
-    d.innerHTML=`<summary><div class="day-h"><div><b>${fmtD(date)}</b> <small>${date.toLocaleDateString('he-IL',{weekday:'long'})}</small>${isAct?'<span class="tag new">עודכן בפועל</span>':''}</div>
+    d.innerHTML=`<summary><div class="day-h"><div><b>${fmtD(date)}</b> <small>${date.toLocaleDateString('he-IL',{weekday:'long'})}</small>${isAct?'<span class="tag new">עודכן לפי מה שיש</span>':''}</div>
       <label class="chk"><input type="checkbox" id="done-${key}" ${S.done[key]?'checked':''}> בוצע</label></div>
       <div class="hint" style="margin:0">${nP?nP+' שתילים':''}${nP&&nD?' · ':''}${nD?nD+' נקודות זריעה':''} · ${items.length+extra.length} צמחים שונים <span class="more">▾ פירוט</span></div></summary><ul></ul>`;
     const ul=d.querySelector('ul');
@@ -751,7 +751,7 @@ function renderCal(P,K){
       li.innerHTML=`${icon(x.id)}<span>${x.n}</span><span><span class="q">${S.per[x.id]}</span> <span class="loc">מסביב לגינה</span></span>`;
       ul.appendChild(li); lines.push(`  ${x.n}: ${S.per[x.id]} – מסביב לגינה`);
     }
-    const eb=document.createElement('button'); eb.type='button'; eb.className='act-btn'; eb.textContent=isAct?'✎ תיקון מה שתלתי':'✎ שתלתי משהו אחר? עדכון';
+    const eb=document.createElement('button'); eb.type='button'; eb.className='act-btn'; eb.textContent=isAct?'✎ תיקון השתילים שיש לי':'✎ יש לי שתילים אחרים? עדכון';
     eb.onclick=()=>{ul.hidden=true;eb.hidden=true;actualEditor(key,items,d,()=>{ul.hidden=false;eb.hidden=false})};
     d.appendChild(eb);
     d.querySelector('label.chk').addEventListener('click',e=>e.stopPropagation());
@@ -796,12 +796,12 @@ function actualEditor(key,items,host,onClose){
   const box=document.createElement('div'); box.className='acted';
   const close=()=>{box.remove();onClose&&onClose()};
   const draw=()=>{
-    box.innerHTML=`<p class="hint" style="margin:0 0 8px">כמה שתלתם בפועל? המתכנן יסדר מחדש את הערוגות והקטיף לפי זה. התכנון לשתילות הבאות לא משתנה.</p><ul></ul>
-      <select aria-label="הוספת ירק" style="margin-top:8px;width:100%"><option value="">+ הוספת ירק ששתלתם</option>${CROPS.filter(c=>!(c.id in cur)).map(c=>`<option value="${c.id}">${c.n}</option>`).join('')}</select>
+    box.innerHTML=`<p class="hint" style="margin:0 0 8px">אילו שתילים יש לכם לשתילה הזו (קניתם או כבר שתלתם)? המתכנן יסדר מחדש איפה כל אחד נכנס, ואת הקטיף. השתילות הבאות לא משתנות. אחרי השתילה מסמנים "בוצע".</p><ul></ul>
+      <select aria-label="הוספת ירק" style="margin-top:8px;width:100%"><option value="">+ הוספת ירק שיש לכם</option>${CROPS.filter(c=>!(c.id in cur)).map(c=>`<option value="${c.id}">${c.n}</option>`).join('')}</select>
       <div class="row" style="gap:6px;margin-top:10px"><button type="button" class="primary" data-a="save">שמירה</button><button type="button" data-a="cancel">ביטול</button>${S.actual[key]?'<button type="button" data-a="reset">חזרה לתכנון המקורי</button>':''}</div>`;
     const ul=box.querySelector('ul');
     Object.keys(cur).forEach(id=>{const c=CROPS.find(x=>x.id===id); if(!c) return; const li=document.createElement('li');
-      li.innerHTML=`${icon(id)}<span class="nm">${c.n}${c.m==='d'?' (זריעה)':''}</span><div class="ctl"><div class="step"><button type="button" data-d="-1" aria-label="פחות ${c.n}">−</button><output>${cur[id]}</output><button type="button" data-d="1" aria-label="עוד ${c.n}">+</button></div><button type="button" class="yn y" data-v="1" aria-label="שתלתי ${c.n}" title="שתלתי">✓</button><button type="button" class="yn n" data-v="0" aria-label="לא שתלתי ${c.n}" title="לא שתלתי">✕</button></div>`;
+      li.innerHTML=`${icon(id)}<span class="nm">${c.n}${c.m==='d'?' (זריעה)':''}</span><div class="ctl"><div class="step"><button type="button" data-d="-1" aria-label="פחות ${c.n}">−</button><output>${cur[id]}</output><button type="button" data-d="1" aria-label="עוד ${c.n}">+</button></div><button type="button" class="yn y" data-v="1" aria-label="יש לי ${c.n}" title="יש לי">✓</button><button type="button" class="yn n" data-v="0" aria-label="אין לי ${c.n}" title="אין לי">✕</button></div>`;
       const sync=()=>{li.querySelector('output').textContent=cur[id];li.classList.toggle('off',!cur[id]);li.querySelector('.yn.y').classList.toggle('on',cur[id]>0);li.querySelector('.yn.n').classList.toggle('on',!cur[id])};
       li.querySelectorAll('.step button').forEach(b=>b.onclick=()=>{cur[id]=Math.max(0,cur[id]+ +b.dataset.d);if(cur[id])was[id]=cur[id];sync()});
       li.querySelector('.yn.y').onclick=()=>{if(!cur[id])cur[id]=was[id]||1;sync()};
@@ -810,7 +810,7 @@ function actualEditor(key,items,host,onClose){
       ul.appendChild(li)});
     box.querySelector('select').onchange=e=>{if(e.target.value){cur[e.target.value]=1;draw()}};
     box.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{const a=b.dataset.a;
-      if(a==='save'){S.actual[key]=Object.fromEntries(Object.entries(cur).filter(([,v])=>v>0));S.done[key]=true;save();render();toast('היומן עודכן לפי מה ששתלתם')}
+      if(a==='save'){S.actual[key]=Object.fromEntries(Object.entries(cur).filter(([,v])=>v>0));save();render();toast('התוכנית עודכנה לפי השתילים שיש לכם')}
       else if(a==='reset'){delete S.actual[key];save();render();toast('חזרה לתכנון המקורי')}
       else close()});
   };
@@ -958,8 +958,8 @@ async function checkLinkActual(){
   const days=Object.keys(o||{}).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k));
   if(!days.length){clean();return true}
   const names=days.map(k=>fmtD(new Date(k+'T00:00'))).join(', ');
-  const apply=()=>{for(const k of days){const kk=actKey(k);S.actual[kk]={};for(const id in o[k]) if(CROPS.some(c=>c.id===id)&&+o[k][id]>0) S.actual[kk][id]=+o[k][id];S.done[kk]=true}save();init();clean();toast('היומן עודכן לפי מה ששתלתם')};
-  bar(`<b>עדכון שתילה בפועל (${names})</b><br>היומן והערוגות יסתדרו לפי מה ששתלתם. שאר התכנון שלכם נשאר.`,'עדכן את התכנון שלי','לא עכשיו',apply,clean);
+  const apply=()=>{for(const k of days){const kk=actKey(k);S.actual[kk]={};for(const id in o[k]) if(CROPS.some(c=>c.id===id)&&+o[k][id]>0) S.actual[kk][id]=+o[k][id]}save();init();clean();toast('התוכנית עודכנה לפי השתילים שיש לכם')};
+  bar(`<b>עדכון השתילים שיש לכם (${names})</b><br>היומן והערוגות יסתדרו לפי השתילים האלה. שאר התכנון שלכם נשאר.`,'עדכן את התכנון שלי','לא עכשיו',apply,clean);
   return true;
 }
 async function checkLinkPlan(){
