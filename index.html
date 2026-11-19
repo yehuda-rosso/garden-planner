@@ -1087,10 +1087,13 @@ ${acts?'עדכונים לפי השתילים שיש בפועל:\n'+acts+'\n':''}
 ${$('copyBox').value}`;
 }
 (async()=>{
-  if(!window.claude||!claude.use) return;
-  const sample=await claude.use('sample'); if(!sample) return;
+  if(!window.claude||typeof window.claude.use!=='function') return; // a normal website: no chat
   const box=$('ask'), log=$('askLog'), inp=$('askIn'), send=$('askSend'), stop=$('askStop'), clr=$('askClear');
-  box.hidden=false;
+  box.hidden=false; send.disabled=true; inp.disabled=true;
+  const note=document.createElement('p'); note.className='hint'; note.style.margin='0'; note.textContent='מתחבר ל-Claude…'; log.prepend(note);
+  let sample=null; try{sample=await window.claude.use('sample')}catch(e){}
+  if(!sample){note.textContent='הצ׳אט לא זמין בתצוגה הזו. הוא עובד כשהדף פתוח בתוך Claude: באפליקציה או ב-claude.ai, מתוך השיחה או מרשימת הארטיפקטים.';return}
+  note.remove(); send.disabled=false; inp.disabled=false;
   let turns=[], ctl=null;
   const add=(cls,txt)=>{const d=document.createElement('div');d.className=cls;d.textContent=txt;log.appendChild(d);log.scrollTop=log.scrollHeight;return d};
   const clean=t=>t.replace(/\*\*(.+?)\*\*/g,'$1').replace(/^#+\s*/gm,'');
