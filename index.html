@@ -258,7 +258,7 @@ textarea{width:100%;min-height:120px;font:inherit;font-size:13px;background:var(
 
 <section data-tab="3">
   <h2>מפת הערוגות</h2>
-  <p class="hint">כל ציור הוא צמח במקום שלו בערוגה. כשירק נקטף ומתפנה מקום, השתילה הבאה שם היא ממשפחה אחרת, כדי לגוון את מה שהקרקע נותנת ומקבלת. בחרו שבוע כדי לראות מה גדל באותו זמן. פס ירוק מתחת לערוגה = שותלים שם השבוע. המרחקים ביומן (למשל 40–80 ס״מ) נמדדים מהקצה הימני של הערוגה כפי שהיא מצוירת. עיגול מקווקו = נקודת זריעה. לחיצה על ירק מראה מתי הוא נשתל ומה בא אחריו.</p>
+  <p class="hint">כל ציור הוא צמח במקום שלו בערוגה. כשירק נקטף ומתפנה מקום, השתילה הבאה שם היא ממשפחה אחרת, כדי לגוון את מה שהקרקע נותנת ומקבלת. בחרו שבוע כדי לראות מה גדל באותו זמן. פס ירוק מתחת לערוגה = שותלים שם השבוע. המיקום ביומן (למשל "טפטפות 3–4") סופר טפטפות של 20 ס״מ מהקצה הימני של הערוגה כפי שהיא מצוירת. עיגול מקווקו = נקודת זריעה. לחיצה על ירק מראה מתי הוא נשתל ומה בא אחריו.</p>
   <div class="hv-nav map-nav">
     <button type="button" id="mapPrev" aria-label="שבוע קודם">→</button>
     <div class="hv-title"><b id="mapDate"></b><small id="mapSub"></small></div>
@@ -603,7 +603,11 @@ function pack(rows,SW){
   const have=list.reduce((a,d)=>a+d.len,0), area=list.reduce((a,d)=>a+d.len*d.wid/100,0), maxLen=Math.max(1,...beds.map(x=>x.len));
   return {beds,nb,places,byPulse,need,have,area,maxLen,famLen,overflow,replants:replants.length,rotated:rotated.length};
 }
-const where=(K,pl)=>pl?`ערוגה ${pl.bed+1} · ${Math.round(pl.st*SEG*100)}–${Math.round((pl.st+pl.n)*SEG*100)} ס״מ`:'';
+// drip emitters every 20 cm along the bed; emitter k sits at (k-1)*20+10 cm from the bed's start
+const DRIP=20;
+function drips(a,b){let f=Math.ceil((a-DRIP/2)/DRIP)+1, l=Math.ceil((b-DRIP/2)/DRIP); if(l<f){f=l=Math.max(1,Math.round(((a+b)/2-DRIP/2)/DRIP)+1)} return f===l?`טפטפת ${f}`:`טפטפות ${f}–${l}`}
+const cmRange=pl=>`${Math.round(pl.st*SEG*100)}–${Math.round((pl.st+pl.n)*SEG*100)} ס״מ`;
+const where=(K,pl)=>pl?`ערוגה ${pl.bed+1} · ${drips(pl.st*SEG*100,(pl.st+pl.n)*SEG*100)}`:'';
 
 // ---------- render ----------
 const $=id=>document.getElementById(id);
@@ -772,7 +776,7 @@ function showDetail(P,K){
   const c=pl.r.c, verb=c.m==='d'?'נזרע':'נשתל';
   const before=pl.prevPl.length?'לפניו: '+pl.prevPl.map(q=>`${q.r.c.n} (${FAM[q.r.c.f].n})`).join(', ')+(pl.sameFam?' <span class="rot bad">אותה משפחה</span>':' <span class="rot ok">↻ משפחה אחרת</span>'):'אדמה שעוד לא גדל בה כלום העונה.';
   const after=pl.next.length?'אחריו: '+pl.next.map(q=>`${q.r.c.n} (${FAM[q.r.c.f].n}) ב-${fmtD(q.p.date)}`).join(', ')+'.':'אחריו המקום נשאר פנוי עד סוף העונה.';
-  el.innerHTML=`${icon(c.id)} <b>${c.n}</b> · ${where(K,pl)}, ${pl.nRows} שורות כל ${c.sp} ס״מ<br>${verb} ב-${fmtD(pl.p.date)}: ${pl.plants} ${c.m==='d'?'נקודות':'שתילים'}. קטיף ${fmtD(addW(P.start,Math.ceil(pl.p.hs)))}–${fmtD(addW(P.start,Math.floor(pl.p.he)))}.<br>${before}<br>${after}`;
+  el.innerHTML=`${icon(c.id)} <b>${c.n}</b> · ${where(K,pl)} (${cmRange(pl)}), ${pl.nRows} שורות כל ${c.sp} ס״מ<br>${verb} ב-${fmtD(pl.p.date)}: ${pl.plants} ${c.m==='d'?'נקודות':'שתילים'}. קטיף ${fmtD(addW(P.start,Math.ceil(pl.p.hs)))}–${fmtD(addW(P.start,Math.floor(pl.p.he)))}.<br>${before}<br>${after}`;
 }
 $('mapPrev').addEventListener('click',()=>{mapWeek--;selected=null;render()});
 $('mapNext').addEventListener('click',()=>{mapWeek++;selected=null;render()});
