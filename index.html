@@ -587,6 +587,15 @@ function pack(rows,SW){
   events.sort((a,b)=>a.p.wk-b.p.wk||(ROOMY.has(b.r.c.id)-ROOMY.has(a.r.c.id))||(b.p.P/geo(b.r.c,80).ppm)-(a.p.P/geo(a.r.c,80).ppm));
   const places=[], byPulse={};
   let overflow=0;
+  function putPl(r,p,bi,st,n,plants){
+    const c=r.c, b=beds[bi], g=geo(c,b.wid);
+    const prevFams=[...new Set(b.segs.slice(st,st+n).map(x=>x.fam).filter(Boolean))];
+    const prevPl=[...new Set(b.segs.slice(st,st+n).map(x=>x.pl).filter(Boolean))];
+    const pl={r,p,bed:bi,st,n,nRows:g.nRows,plants,until:busyUntil(r,p),prevFams,prevPl,next:[],sameFam:prevFams.includes(c.f)};
+    prevPl.forEach(q=>q.next.push(pl));
+    for(let j=st;j<st+n;j++) Object.assign(b.segs[j],{until:pl.until,fam:c.f,crop:c.id,pl});
+    places.push(pl); return pl;
+  }
   for(const {r,p} of events){
     const c=r.c, w=p.wk, roomy=ROOMY.has(c.id), order=roomy?rankWide:rankNarrow;
     let best=null;
@@ -608,18 +617,29 @@ function pack(rows,SW){
       }
     });
     if(!best){
+      // no single stretch is free: split the planting over the free stretches that are left (largest first)
+      const runs=[];
+      order.forEach((bi,rank)=>{const b=beds[bi]; if(b.extra) return; let st=-1; for(let i=0;i<=b.segs.length;i++){const free=i<b.segs.length&&b.segs[i].until<=w; if(free&&st<0) st=i; if(!free&&st>=0){runs.push({bi,st,len:i-st,rank});st=-1}}});
+      runs.sort((x,y)=>y.len-x.len||x.rank-y.rank);
+      let left=p.P; const parts=[];
+      for(const u of runs){ if(left<=0) break;
+        const cap=Math.floor(u.len*SEG*geo(c,beds[u.bi].wid).ppm+1e-9); if(cap<1) continue;
+        const take=Math.min(cap,left), n=Math.min(u.len,segsFor(c,take,beds[u.bi].wid));
+        parts.push({bi:u.bi,st:u.st,n,plants:take}); left-=take;
+      }
+      if(left<=0){
+        const pls=parts.map(q=>putPl(r,p,q.bi,q.st,q.n,q.plants));
+        pls.forEach(x=>x.parts=pls); byPulse[c.id+':'+p.k]=pls[0];
+        continue;
+      }
+    }
+    if(!best){
       overflow++;
       const d=beds[order[0]]||{len:fallback.len,wid:fallback.wid,segs:{length:Math.round(fallback.len/SEG)}}; const b={len:d.len,wid:d.wid,extra:true,segs:Array.from({length:d.segs.length},()=>({until:0,fam:null,crop:null,pl:null}))};
       beds.push(b); rankWide.push(beds.length-1); rankNarrow.push(beds.length-1);
       best={bi:beds.length-1,st:0,n:Math.min(b.segs.length,segsFor(c,p.P,b.wid)),same:0,used:0};
     }
-    const b=beds[best.bi], g=geo(c,b.wid);
-    const prevFams=[...new Set(b.segs.slice(best.st,best.st+best.n).map(x=>x.fam).filter(Boolean))];
-    const prevPl=[...new Set(b.segs.slice(best.st,best.st+best.n).map(x=>x.pl).filter(Boolean))];
-    const pl={r,p,bed:best.bi,st:best.st,n:best.n,nRows:g.nRows,plants:p.P,until:busyUntil(r,p),prevFams,prevPl,next:[],sameFam:prevFams.includes(c.f)};
-    prevPl.forEach(q=>q.next.push(pl));
-    for(let j=best.st;j<best.st+best.n;j++) Object.assign(b.segs[j],{until:pl.until,fam:c.f,crop:c.id,pl});
-    places.push(pl); byPulse[c.id+':'+p.k]=pl;
+    byPulse[c.id+':'+p.k]=putPl(r,p,best.bi,best.st,best.n,p.P);
   }
   // peak bed use across the season
   let need=0, peakW=0;
@@ -633,7 +653,8 @@ function pack(rows,SW){
 const DRIP=20;
 function drips(a,b){let f=Math.ceil((a-DRIP/2)/DRIP)+1, l=Math.ceil((b-DRIP/2)/DRIP); if(l<f){f=l=Math.max(1,Math.round(((a+b)/2-DRIP/2)/DRIP)+1)} return f===l?`טפטפת ${f}`:`טפטפות ${f}–${l}`}
 const cmRange=pl=>`${Math.round(pl.st*SEG*100)}–${Math.round((pl.st+pl.n)*SEG*100)} ס״מ`;
-const where=(K,pl)=>pl?`ערוגה ${pl.bed+1} · ${drips(pl.st*SEG*100,(pl.st+pl.n)*SEG*100)}`:'';
+const where1=pl=>`ערוגה ${pl.bed+1} · ${drips(pl.st*SEG*100,(pl.st+pl.n)*SEG*100)}`+(pl.parts&&pl.parts.length>1?` (${pl.plants})`:'');
+const where=(K,pl)=>pl?(pl.parts&&pl.parts.length>1?pl.parts.map(where1).join(' + '):where1(pl)):'';
 
 // ---------- render ----------
 const $=id=>document.getElementById(id);
@@ -811,7 +832,7 @@ function showDetail(P,K){
   const c=pl.r.c, verb=c.m==='d'?'נזרע':'נשתל';
   const before=pl.prevPl.length?'לפניו: '+pl.prevPl.map(q=>`${q.r.c.n} (${FAM[q.r.c.f].n})`).join(', ')+(pl.sameFam?' <span class="rot bad">אותה משפחה</span>':' <span class="rot ok">↻ משפחה אחרת</span>'):'אדמה שעוד לא גדל בה כלום העונה.';
   const after=pl.next.length?'אחריו: '+pl.next.map(q=>`${q.r.c.n} (${FAM[q.r.c.f].n}) ב-${fmtD(q.p.date)}`).join(', ')+'.':'אחריו המקום נשאר פנוי עד סוף העונה.';
-  el.innerHTML=`${icon(c.id)} <b>${c.n}</b> · ${where(K,pl)} (${cmRange(pl)}), ${c.m==='d'?`זורעים סביב הטפטפות בכל ${pl.nRows} קווי הטפטוף${SOW[c.id]?'. '+SOW[c.id]:''}`:`${pl.nRows} שורות כל ${c.sp} ס״מ`}<br>${verb} ב-${fmtD(pl.p.date)}: ${c.m==='d'?`סביב ${pl.plants} טפטפות`:pl.plants+' שתילים'}. קטיף ${fmtD(addW(P.start,Math.ceil(pl.p.hs)))}–${fmtD(addW(P.start,Math.floor(pl.p.he)))}.<br>${before}<br>${after}`;
+  el.innerHTML=`${icon(c.id)} <b>${c.n}</b> · ${where(K,pl)}${pl.parts&&pl.parts.length>1?' · השתילה מפוצלת כי אין רצף פנוי אחד':' ('+cmRange(pl)+')'}, ${c.m==='d'?`זורעים סביב הטפטפות בכל ${pl.nRows} קווי הטפטוף${SOW[c.id]?'. '+SOW[c.id]:''}`:`${pl.nRows} שורות כל ${c.sp} ס״מ`}<br>${verb} ב-${fmtD(pl.p.date)}: ${c.m==='d'?`סביב ${pl.plants} טפטפות`:pl.plants+' שתילים'}. קטיף ${fmtD(addW(P.start,Math.ceil(pl.p.hs)))}–${fmtD(addW(P.start,Math.floor(pl.p.he)))}.<br>${before}<br>${after}`;
 }
 $('mapPrev').addEventListener('click',()=>{mapWeek--;selected=null;render()});
 $('mapNext').addEventListener('click',()=>{mapWeek++;selected=null;render()});
