@@ -288,15 +288,15 @@ textarea{width:100%;min-height:120px;font:inherit;font-size:13px;background:var(
 </section>
 
 <section data-tab="3">
-  <h2>יומן שתילה</h2>
-  <div class="row" style="justify-content:space-between;margin:6px 0 12px">
-    <p class="hint" style="margin:0">מה קונים במשתלה בכל ביקור, ואיפה שותלים כל דבר.</p>
-    <button id="btnCopy" type="button">העתק את היומן כטקסט</button>
-  </div>
   <div class="ask panel" id="ask" hidden>
     <div class="ask-h"><b>שאלו שאלה על השתילה</b><button type="button" class="ghost" id="askClear" hidden>שיחה חדשה</button></div>
     <div class="ask-log" id="askLog"><p class="hint" style="margin:0">למשל: "איפה שותלים מחר את הכרובית?", "מה לעשות עם שתילים שנשארו?", "אפשר לשתול שום ליד הסלק?". התשובה מתבססת על התכנון שלכם ועל נתוני הקורס.</p></div>
     <form class="ask-f" id="askForm"><textarea id="askIn" rows="2" placeholder="כתבו שאלה…" aria-label="שאלה"></textarea><button type="submit" class="primary" id="askSend">שאל</button><button type="button" id="askStop" hidden>עצור</button></form>
+  </div>
+  <h2>יומן שתילה</h2>
+  <div class="row" style="justify-content:space-between;margin:6px 0 12px">
+    <p class="hint" style="margin:0">מה קונים במשתלה בכל ביקור, ואיפה שותלים כל דבר.</p>
+    <button id="btnCopy" type="button">העתק את היומן כטקסט</button>
   </div>
   <div class="cal-add"><span class="hint" style="margin:0">שתילה ביום שלא מופיע ביומן?</span><input type="date" id="actDate" aria-label="תאריך השתילה"><button type="button" id="btnActAdd">עדכון שתילה בתאריך הזה</button></div>
   <div id="actNew"></div>
