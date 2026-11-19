@@ -193,6 +193,9 @@ button.ghost{background:transparent}
 .ask-f{display:flex;gap:6px;align-items:end}
 .ask-f textarea{min-height:44px;font-size:16px;flex:1;resize:vertical}
 .paste-link{margin-top:12px;display:grid;gap:6px}
+.empty-toggle{display:flex;align-items:center;gap:8px;width:100%;text-align:start;background:var(--panel);border:1px dashed var(--line);border-radius:12px;padding:10px 12px;font-size:14px;color:var(--muted)}
+.empty-toggle .pm{width:24px;height:24px;border-radius:50%;display:inline-grid;place-items:center;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-weight:700;flex:none}
+.empty-toggle small{font-size:12px}
 .cal-add{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 12px}
 .cal-add input{max-width:11em}
 .hv-soon{font-size:13.5px;color:var(--muted)}
@@ -745,10 +748,12 @@ function renderBeds(P,K){
   const box=$('beds'); box.after($('detail')); box.innerHTML='';
   const pad=4, NS='http://www.w3.org/2000/svg';
   const mk=(tag,attrs,parent)=>{const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e};
+  const empties=[];
   K.beds.forEach((b,i)=>{
     const here=act.filter(pl=>pl.bed===i).sort((a,b)=>a.st-b.st);
     const usedM=here.reduce((a,pl)=>a+pl.n*SEG,0), free=b.len-usedM;
     const div=document.createElement('div'); div.className='bed'+(b.extra?' over':''); div.dataset.bed=i;
+    if(!here.length&&!b.extra){empties.push(i+1); div.classList.add('empty-bed'); div.hidden=!showEmpty}
     div.innerHTML=`<h3><span>ערוגה ${i+1} <small style="font-weight:600">${r1(b.len)} מ׳ × ${Math.round(b.wid)} ס״מ</small>${b.extra?' · אין לה מקום בגינה':''}</span><span>${here.length?(free>0.05?'פנוי '+r1(free)+' מ׳':'מלאה'):'פנויה'}</span></h3>`;
     const Wcm=b.wid, Lcm=b.len*100;
     const svg=mk('svg',{viewBox:`${-pad} ${-pad} ${Lcm+pad*2} ${Wcm+pad*2+18}`,role:'img','aria-label':`ערוגה ${i+1}`});
@@ -781,6 +786,13 @@ function renderBeds(P,K){
     div.appendChild(keyEl);
     box.appendChild(div);
   });
+  if(empties.length){
+    // empty beds this week fold into one line; a bed opens again by itself once something is planted in it
+    const t=document.createElement('button'); t.type='button'; t.className='empty-toggle'; t.setAttribute('aria-expanded',showEmpty);
+    t.innerHTML=`<span class="pm">${showEmpty?'−':'+'}</span> ${empties.length===1?'ערוגה פנויה':'ערוגות פנויות'} השבוע: ${empties.join(', ')}${showEmpty?'':' <small>(לחצו להצגה)</small>'}`;
+    t.onclick=()=>{showEmpty=!showEmpty;renderBeds(P,K)};
+    box.appendChild(t);
+  }
   showDetail(P,K,true);
 }
 function showDetail(P,K){
@@ -874,7 +886,7 @@ const HOW={
  strawberry:'קוטפים פרי אדום לגמרי יחד עם העוקץ, כל יומיים-שלושה, בבוקר. חיפוי קש מתחת לצמחים שומר על הפירות נקיים.',
  pea:'קוטפים תרמילים צעירים כל 2–3 ימים, כדי שהצמח ימשיך להניב.'
 };
-let hvWeek=null;
+let hvWeek=null, showEmpty=false;
 // edit what actually went into the ground on one planting day
 function actualEditor(key,items,host,onClose){
   const cur={}, was={};
