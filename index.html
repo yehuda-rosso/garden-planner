@@ -182,6 +182,16 @@ button.ghost{background:transparent}
 .acted .yn.n.on{background:var(--warn);color:var(--panel);border-color:var(--warn)}
 .acted li.off .nm{text-decoration:line-through;color:var(--muted)}
 .acted li.off .ic,.acted li.off .step{opacity:.35}
+.ask{margin:0 0 14px;display:grid;gap:8px}
+.ask-h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.ask-h button{font-size:13px;padding:3px 10px}
+.ask-log{display:grid;gap:8px;max-height:55vh;overflow-y:auto}
+.ask-log .q,.ask-log .a{padding:8px 10px;border-radius:10px;font-size:14.5px;line-height:1.5;white-space:pre-wrap}
+.ask-log .q{background:var(--leaf-soft);justify-self:start;max-width:90%}
+.ask-log .a{background:var(--bg);border:1px solid var(--line)}
+.ask-log .a.err{color:var(--warn)}
+.ask-f{display:flex;gap:6px;align-items:end}
+.ask-f textarea{min-height:44px;font-size:16px;flex:1;resize:vertical}
 .cal-add{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 12px}
 .cal-add input{max-width:11em}
 .hv-soon{font-size:13.5px;color:var(--muted)}
@@ -274,6 +284,11 @@ textarea{width:100%;min-height:120px;font:inherit;font-size:13px;background:var(
   <div class="row" style="justify-content:space-between;margin:6px 0 12px">
     <p class="hint" style="margin:0">מה קונים במשתלה בכל ביקור, ואיפה שותלים כל דבר.</p>
     <button id="btnCopy" type="button">העתק את היומן כטקסט</button>
+  </div>
+  <div class="ask panel" id="ask" hidden>
+    <div class="ask-h"><b>שאלו שאלה על השתילה</b><button type="button" class="ghost" id="askClear" hidden>שיחה חדשה</button></div>
+    <div class="ask-log" id="askLog"><p class="hint" style="margin:0">למשל: "איפה שותלים מחר את הכרובית?", "מה לעשות עם שתילים שנשארו?", "אפשר לשתול שום ליד הסלק?". התשובה מתבססת על התכנון שלכם ועל נתוני הקורס.</p></div>
+    <form class="ask-f" id="askForm"><textarea id="askIn" rows="2" placeholder="כתבו שאלה…" aria-label="שאלה"></textarea><button type="submit" class="primary" id="askSend">שאל</button><button type="button" id="askStop" hidden>עצור</button></form>
   </div>
   <div class="cal-add"><span class="hint" style="margin:0">שתילה ביום שלא מופיע ביומן?</span><input type="date" id="actDate" aria-label="תאריך השתילה"><button type="button" id="btnActAdd">עדכון שתילה בתאריך הזה</button></div>
   <div id="actNew"></div>
@@ -1050,6 +1065,57 @@ $('btnActAdd').addEventListener('click',()=>{
   const panel=document.createElement('div'); panel.className='day'; panel.innerHTML=`<div class="day-h"><b>${fmtD(addW(st,w))}</b></div>`; host.appendChild(panel);
   actualEditor(key,items,panel,()=>host.innerHTML='');
 });
+// ---------- ask Claude (only where the page runs inside Claude; hidden elsewhere) ----------
+function planContext(){
+  const P=plan(), K=pack(P.rows,P.SW), t=today();
+  const beds=bedList().map((b,i)=>`ערוגה ${i+1}: ${b.len} מ׳ × ${b.wid} ס״מ`).join('; ');
+  const crops=P.rows.map(r=>{const c=r.c,h=HC[c.id];
+    return `- ${c.n}: ${+S.qty[c.id]||0} ${c.u} בשבוע; ${c.m==='d'?'זריעה ישירה':'שתילה'}; ${geo(c,80).nRows} שורות בערוגת 80, ${c.sp} ס״מ בשורה; משפחה: ${FAM[c.f].n}`+(h?`; ${HT[h.t][0]}${h.plus?'+':''}, קטיף ראשון אחרי ${h.first} שבועות${h.win?', חלון קטיף '+h.win+' שבועות':''}${h.cuts?', '+h.cuts+' חיתוכים':''}${h.span?', '+h.span:''}`:'')+(HOW[c.id]?`; איך קוטפים (טיפ כללי): ${HOW[c.id]}`:'')}).join('\n');
+  const acts=Object.keys(S.actual||{}).map(k=>`${k}: `+Object.entries(S.actual[k]).map(([id,q])=>(CROPS.find(c=>c.id===id)||{n:id}).n+' '+q).join(', ')).join('\n');
+  const hv=harvestAt(P,K,Math.max(0,Math.floor((t-P.start)/864e5/7))).map(o=>`${o.r.c.n} ${o.amt} ${o.r.c.u} (${o.where})`).join('; ');
+  return `היום: ${fmtD(t)} (${iso(t)}). עונה: ${S.start} עד ${S.end}. ביקור במשתלה כל ${S.rhythm} שבועות.
+ערוגות: ${beds}. המיקום בערוגה נספר בטפטפות של 20 ס״מ מהקצה הימני של הערוגה (טפטפת 1 בערך 10 ס״מ מהקצה).
+ירקות בתכנון:
+${crops||'אין'}
+${acts?'עדכונים לפי השתילים שיש בפועל:\n'+acts+'\n':''}קוטפים השבוע: ${hv||'כלום'}
+יומן השתילה המלא:
+${$('copyBox').value}`;
+}
+(async()=>{
+  if(!window.claude||!claude.use) return;
+  const sample=await claude.use('sample'); if(!sample) return;
+  const box=$('ask'), log=$('askLog'), inp=$('askIn'), send=$('askSend'), stop=$('askStop'), clr=$('askClear');
+  box.hidden=false;
+  let turns=[], ctl=null;
+  const add=(cls,txt)=>{const d=document.createElement('div');d.className=cls;d.textContent=txt;log.appendChild(d);log.scrollTop=log.scrollHeight;return d};
+  const clean=t=>t.replace(/\*\*(.+?)\*\*/g,'$1').replace(/^#+\s*/gm,'');
+  clr.onclick=()=>{turns=[];log.querySelectorAll('.q,.a').forEach(e=>e.remove());clr.hidden=true};
+  stop.onclick=()=>ctl&&ctl.abort();
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('askForm').requestSubmit()}});
+  $('askForm').addEventListener('submit',async e=>{
+    e.preventDefault(); const q=inp.value.trim(); if(!q||ctl) return;
+    inp.value=''; add('q',q); const a=add('a','חושב…'); clr.hidden=false;
+    const first=!turns.length;
+    const content=first?`את/ה עוזר/ת גינון לגן ירק ביתי בחורף בישראל, בהשראת הקורס "גן הירק היצרני". עונים בעברית, קצר ומעשי, בלי כותרות ובלי טבלאות. מתבססים קודם כל על התכנון והיומן שלמטה (תאריכים, כמויות, ערוגה וטפטפות). כשהתשובה היא ידע גינוני כללי ולא מהתכנון או מנתוני הקורס, אומרים את זה. אם חסר מידע, שואלים שאלה אחת.
+
+התכנון של המשתמש:
+${planContext()}
+
+השאלה: ${q}`:q;
+    turns.push({role:'user',content});
+    ctl=new AbortController(); send.hidden=true; stop.hidden=false;
+    try{
+      const {text}=await sample(turns.slice(-12),{signal:ctl.signal,cache:false,onText:({text})=>{a.textContent=clean(text);log.scrollTop=log.scrollHeight}});
+      a.textContent=clean(text); turns.push({role:'assistant',content:text});
+    }catch(err){
+      turns.pop();
+      const msg={not_granted:'צריך לאשר ל-Claude לענות מהדף הזה.',rate_limited:'יותר מדי שאלות ברגע. נסו שוב בעוד דקה.',aborted:'נעצר.'}[err.code]||'לא הצלחתי לענות כרגע. נסו שוב.';
+      if(err.text){a.textContent=clean(err.text)+'\n('+msg+')'} else {a.textContent=msg;a.classList.add('err')}
+      if(err.code==='not_granted'){send.disabled=true}
+    }finally{ctl=null;send.hidden=false;stop.hidden=true}
+  });
+})();
+
 // ---------- screens ----------
 const TABS={1:'הגדרות',2:'בחירת ירקות',3:'ערוגות ושתילה',4:'קטיף'};
 let tab=1;
