@@ -276,7 +276,7 @@ textarea{width:100%;min-height:120px;font:inherit;font-size:13px;background:var(
 
 <section data-tab="3">
   <h2>מפת הערוגות</h2>
-  <p class="hint">כל ציור הוא צמח במקום שלו בערוגה. כשירק נקטף ומתפנה מקום, השתילה הבאה שם היא ממשפחה אחרת, כדי לגוון את מה שהקרקע נותנת ומקבלת. בחרו שבוע כדי לראות מה גדל באותו זמן. פס ירוק מתחת לערוגה = שותלים שם השבוע. המיקום ביומן (למשל "טפטפות 3–4") סופר טפטפות של 20 ס״מ מהקצה הימני של הערוגה כפי שהיא מצוירת. עיגול מקווקו = נקודת זריעה. לחיצה על ירק מראה מתי הוא נשתל ומה בא אחריו.</p>
+  <p class="hint">כל ציור הוא צמח במקום שלו בערוגה. כשירק נקטף ומתפנה מקום, השתילה הבאה שם היא ממשפחה אחרת, כדי לגוון את מה שהקרקע נותנת ומקבלת. בחרו שבוע כדי לראות מה גדל באותו זמן. פס ירוק מתחת לערוגה = שותלים שם השבוע. המיקום ביומן (למשל "טפטפות 3–4") סופר טפטפות של 20 ס״מ מהקצה הימני של הערוגה כפי שהיא מצוירת. עיגול מקווקו = טפטפת שזורעים סביבה. לחיצה על ירק מראה מתי הוא נשתל ומה בא אחריו.</p>
   <div class="hv-nav map-nav">
     <button type="button" id="mapPrev" aria-label="שבוע קודם">→</button>
     <div class="hv-title"><b id="mapDate"></b><small id="mapSub"></small></div>
@@ -566,7 +566,10 @@ function plan(){
   return {rows,SW,start,end};
 }
 
-function geo(c,wid){/* rows may sit up to 10% closer than the course spacing, except for crops that need room */const nRows=Math.max(1,Math.floor(c.r*wid/(ROOMY.has(c.id)?80:72)+1e-9));const ppm=nRows*100/c.sp;return {nRows,ppm}}
+// direct sowing is counted the course's way, in drippers: an 80 cm bed carries 3 drip lines (a 1 m bed 4), one dripper every 20 cm on each
+const SOW={carrot:'זורעים 4 שורות בלי מרווחים, ומדללים אחרי הנביטה לשתי אצבעות',radish:'זורעים בלי מרווחים, עד 6 שורות',turnip:'זורעים בלי מרווחים'};
+const dripLines=wid=>Math.max(1,Math.round(wid/26.7));
+function geo(c,wid){if(c.m==='d'){const nRows=dripLines(wid);return {nRows,ppm:nRows*100/20}}/* rows may sit up to 10% closer than the course spacing, except for crops that need room */const nRows=Math.max(1,Math.floor(c.r*wid/(ROOMY.has(c.id)?80:72)+1e-9));const ppm=nRows*100/c.sp;return {nRows,ppm}}
 function bedList(){const out=[];for(const g of S.groups){const n=Math.max(0,Math.min(60,+g.n|0));for(let i=0;i<n;i++)out.push({len:Math.max(.3,+g.len||3),wid:Math.max(20,+g.wid||80)})}return out}
 // pack slots into beds (grouped by family for rotation)
 // crops that need their full spacing: get the widest beds first and are never squeezed
@@ -808,7 +811,7 @@ function showDetail(P,K){
   const c=pl.r.c, verb=c.m==='d'?'נזרע':'נשתל';
   const before=pl.prevPl.length?'לפניו: '+pl.prevPl.map(q=>`${q.r.c.n} (${FAM[q.r.c.f].n})`).join(', ')+(pl.sameFam?' <span class="rot bad">אותה משפחה</span>':' <span class="rot ok">↻ משפחה אחרת</span>'):'אדמה שעוד לא גדל בה כלום העונה.';
   const after=pl.next.length?'אחריו: '+pl.next.map(q=>`${q.r.c.n} (${FAM[q.r.c.f].n}) ב-${fmtD(q.p.date)}`).join(', ')+'.':'אחריו המקום נשאר פנוי עד סוף העונה.';
-  el.innerHTML=`${icon(c.id)} <b>${c.n}</b> · ${where(K,pl)} (${cmRange(pl)}), ${pl.nRows} שורות כל ${c.sp} ס״מ<br>${verb} ב-${fmtD(pl.p.date)}: ${pl.plants} ${c.m==='d'?'נקודות':'שתילים'}. קטיף ${fmtD(addW(P.start,Math.ceil(pl.p.hs)))}–${fmtD(addW(P.start,Math.floor(pl.p.he)))}.<br>${before}<br>${after}`;
+  el.innerHTML=`${icon(c.id)} <b>${c.n}</b> · ${where(K,pl)} (${cmRange(pl)}), ${c.m==='d'?`זורעים סביב הטפטפות בכל ${pl.nRows} קווי הטפטוף${SOW[c.id]?'. '+SOW[c.id]:''}`:`${pl.nRows} שורות כל ${c.sp} ס״מ`}<br>${verb} ב-${fmtD(pl.p.date)}: ${c.m==='d'?`סביב ${pl.plants} טפטפות`:pl.plants+' שתילים'}. קטיף ${fmtD(addW(P.start,Math.ceil(pl.p.hs)))}–${fmtD(addW(P.start,Math.floor(pl.p.he)))}.<br>${before}<br>${after}`;
 }
 $('mapPrev').addEventListener('click',()=>{mapWeek--;selected=null;render()});
 $('mapNext').addEventListener('click',()=>{mapWeek++;selected=null;render()});
@@ -832,7 +835,7 @@ function renderCal(P,K){
     if(!S.done[key] && openCount<2 && date>=addW(today(),-1)){d.open=true;openCount++}
     d.innerHTML=`<summary><div class="day-h"><div><b>${fmtD(date)}</b> <small>${date.toLocaleDateString('he-IL',{weekday:'long'})}</small>${isAct?'<span class="tag new">עודכן לפי מה שיש</span>':''}</div>
       <label class="chk"><input type="checkbox" id="done-${key}" ${S.done[key]?'checked':''}> בוצע</label></div>
-      <div class="hint" style="margin:0">${nP?nP+' שתילים':''}${nP&&nD?' · ':''}${nD?nD+' נקודות זריעה':''} · ${items.length+extra.length} צמחים שונים <span class="more">▾ פירוט</span></div></summary><ul></ul>`;
+      <div class="hint" style="margin:0">${nP?nP+' שתילים':''}${nP&&nD?' · ':''}${nD?'זריעה סביב '+nD+' טפטפות':''} · ${items.length+extra.length} צמחים שונים <span class="more">▾ פירוט</span></div></summary><ul></ul>`;
     const ul=d.querySelector('ul');
     lines.push(`${fmtD(date)}:`);
     items.sort((a,b)=>a.r.c.m.localeCompare(b.r.c.m));
