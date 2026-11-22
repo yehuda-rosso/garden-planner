@@ -620,7 +620,7 @@ function pack(rows,SW){
     // where it was actually planted, as the gardener recorded it
     const pin=pinOf(r,p);
     if(pin&&pin.bed>=0&&pin.bed<beds.length&&!beds[pin.bed].extra){
-      const b=beds[pin.bed], st=Math.min(Math.max(0,Math.round((pin.d-1)*DRIP/100/SEG)),b.segs.length-1), n=Math.min(b.segs.length-st,pin.to>=pin.d?Math.round((pin.to-pin.d+1)*DRIP/100/SEG):segsFor(c,p.P,b.wid));
+      const b=beds[pin.bed], st=Math.min(Math.max(0,Math.round((pin.d-1)*DRIP/100/SEG)),b.segs.length-1), n=Math.min(b.segs.length-st,segsFor(c,p.P,b.wid));
       const pl=putPl(r,p,pin.bed,st,n,p.P); pl.pinned=true; byPulse[c.id+':'+p.k]=pl; continue;
     }
     order.forEach((bi,rank)=>{
@@ -813,7 +813,7 @@ function dragEnd(commit){
   d.g.classList.remove('dragging'); document.body.classList.remove('drag-on'); d.badge&&d.badge.remove();
   document.querySelectorAll('.bed.drop').forEach(x=>x.classList.remove('drop'));
   dragJustEnded=true; setTimeout(()=>dragJustEnded=false,400);
-  if(commit&&d.target){const pl=d.pl, len=Math.max(1,Math.round(pl.n*SEG*100/DRIP)); S.pins[pl.r.c.id+'@'+iso(pl.p.date)]={bed:d.target.bi,d:d.target.d,to:Math.min(Math.round(d.K.beds[d.target.bi].len*100/DRIP),d.target.d+len-1)}; selected=pl.r.c.id+':'+pl.p.k; save(); render(); toast(`${pl.r.c.n} הועבר לערוגה ${d.target.bi+1}, טפטפת ${d.target.d}`)}
+  if(commit&&d.target){const pl=d.pl; S.pins[pl.r.c.id+'@'+iso(pl.p.date)]={bed:d.target.bi,d:d.target.d}; selected=pl.r.c.id+':'+pl.p.k; save(); render(); toast(`${pl.r.c.n} הועבר לערוגה ${d.target.bi+1}, טפטפת ${d.target.d}`)}
 }
 window.addEventListener('pointermove',e=>{
   if(!DR) return;
@@ -906,14 +906,13 @@ function showDetail(P,K){
   const after=pl.next.length?'אחריו: '+pl.next.map(q=>`${q.r.c.n} (${FAM[q.r.c.f].n}) ב-${fmtD(q.p.date)}`).join(', ')+'.':'אחריו המקום נשאר פנוי עד סוף העונה.';
   const pinKey=c.id+'@'+iso(pl.p.date), nDr=b=>Math.round(K.beds[b].len*100/DRIP);
   el.innerHTML=`${icon(c.id)} <b>${c.n}</b>${pl.pinned?' <span class="tag new">מיקום בפועל</span>':''} · ${where(K,pl)}${pl.parts&&pl.parts.length>1?' · השתילה מפוצלת כי אין רצף פנוי אחד':' ('+cmRange(pl)+')'}, ${c.m==='d'?`זורעים סביב הטפטפות בכל ${pl.nRows} קווי הטפטוף${SOW[c.id]?'. '+SOW[c.id]:''}`:`${pl.nRows} שורות כל ${c.sp} ס״מ`}<br>${verb} ב-${fmtD(pl.p.date)}: ${c.m==='d'?`סביב ${pl.plants} טפטפות`:pl.plants+' שתילים'}. קטיף ${fmtD(addW(P.start,Math.ceil(pl.p.hs)))}–${fmtD(addW(P.start,Math.floor(pl.p.he)))}.<br>${before}<br>${after}
-    <div class="move"><button type="button" class="act-btn" id="mvOpen">📍 שתלתי במקום או במרווח אחר</button>${pl.pinned?' <button type="button" class="act-btn" id="mvReset">חזרה למיקום המתוכנן</button>':''}
+    <div class="move"><button type="button" class="act-btn" id="mvOpen">📍 שתלתי במקום אחר</button>${pl.pinned?' <button type="button" class="act-btn" id="mvReset">חזרה למיקום המתוכנן</button>':''}
     <div class="mv-f" id="mvForm" hidden><label>ערוגה <select id="mvBed">${K.beds.map((b,i)=>b.extra?'':`<option value="${i}"${i===pl.bed?' selected':''}>${i+1}</option>`).join('')}</select></label>
     <label>מטפטפת <input type="number" id="mvDrip" min="1" max="${nDr(pl.bed)}" value="${Math.round(pl.st*SEG*100/DRIP)+1}"></label>
-    <label>עד טפטפת <input type="number" id="mvTo" min="1" max="${nDr(pl.bed)}" value="${Math.round((pl.st+pl.n)*SEG*100/DRIP)}"></label>
     <button type="button" class="primary" id="mvSave">שמירה</button></div>
     <p class="hint" style="margin:4px 0 0">המתכנן יסדר את שאר השתילות מסביב, ולא יזיז את מה שסימנתם.</p></div>`;
   $('mvOpen').onclick=()=>{$('mvForm').hidden=false;$('mvOpen').hidden=true};
-  $('mvSave').onclick=()=>{const bed=+$('mvBed').value,d=Math.max(1,Math.min(nDr(bed),Math.round(+$('mvDrip').value)||1)),to=Math.max(d,Math.min(nDr(bed),Math.round(+$('mvTo').value)||d));S.pins[pinKey]={bed,d,to};save();render();toast('המיקום עודכן')};
+  $('mvSave').onclick=()=>{const bed=+$('mvBed').value,d=Math.max(1,Math.min(nDr(bed),Math.round(+$('mvDrip').value)||1));S.pins[pinKey]={bed,d};save();render();toast('המיקום עודכן')};
   if(pl.pinned) $('mvReset').onclick=()=>{delete S.pins[pinKey];save();render();toast('חזרה למיקום המתוכנן')};
 }
 $('mapPrev').addEventListener('click',()=>{mapWeek--;selected=null;render()});
@@ -1179,7 +1178,7 @@ async function checkLinkPins(src){
   const apply=()=>{
     const P=plan(), w=Math.max(0,actWeek(o.day||S.start,P.start)); let n=0;
     for(const k of Object.keys(S.pins)){const d=k.split('@')[1]; if(actWeek(d,P.start)===w) delete S.pins[k]}
-    for(const r of P.rows){const v=(o.p||{})[r.c.id]; if(!v) continue; const pu=r.pulses.find(x=>x.wk===w); if(!pu) continue; const pn={bed:Math.max(0,(+v[0]||1)-1),d:Math.max(1,+v[1]||1)}; if(+v[2]>=pn.d) pn.to=+v[2]; S.pins[r.c.id+'@'+iso(pu.date)]=pn; n++}
+    for(const r of P.rows){const v=(o.p||{})[r.c.id]; if(!v) continue; const pu=r.pulses.find(x=>x.wk===w); if(!pu) continue; S.pins[r.c.id+'@'+iso(pu.date)]={bed:Math.max(0,(+v[0]||1)-1),d:Math.max(1,+v[1]||1)}; n++}
     save();init();clean();toast(`עודכנו המיקומים של ${n} ירקות`)};
   bar(`<b>עדכון מיקומים בערוגות</b><br>הירקות יסומנו במקום שבו נשתלו בפועל, והשאר יסתדר סביבם.`,'עדכן את התכנון שלי','לא עכשיו',apply,clean);
   return true;
