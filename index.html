@@ -530,7 +530,10 @@ function plan(){
   const rows=[];
   // what was actually planted, by week of the season: {wk:{crop:qty}}
   const ACT={};
-  for(const k in S.actual||{}){const wk=actWeek(k,start); if(wk<0||wk>=SW) continue; const a=ACT[wk]||(ACT[wk]={}); for(const id in S.actual[k]) a[id]=(a[id]||0)+(+S.actual[k][id]||0)}
+  // one update per planting day: if two saved dates fall in the same week (e.g. after the season start moved), the latest one wins
+  const actKeyOf={};
+  for(const k of Object.keys(S.actual||{}).sort()){const wk=actWeek(k,start); if(wk<0||wk>=SW) continue; actKeyOf[wk]=k}
+  for(const wk in actKeyOf){const a=ACT[wk]={}, src=S.actual[actKeyOf[wk]]; for(const id in src) a[id]=+src[id]||0}
   for(const c of CROPS){
     const D0=+S.qty[c.id]||0, actQ=Object.keys(ACT).map(w=>+ACT[w][c.id]||0).filter(q=>q>0);
     if(D0<=0&&!actQ.length) continue;
@@ -851,7 +854,7 @@ function renderCal(P,K){
     const extra=wk===0?perNow:[];
     const nP=items.filter(i=>i.r.c.m==='p').reduce((a,i)=>a+i.p.P,0)+extra.reduce((a,x)=>a+(+S.per[x.id]),0);
     const nD=items.filter(i=>i.r.c.m==='d').reduce((a,i)=>a+i.p.P,0);
-    const isAct=!!(S.actual&&S.actual[key]);
+    const isAct=hasActWeek(key);
     const d=document.createElement('details'); d.className='day'+(S.done[key]?' done':'');
     if(!S.done[key] && openCount<2 && date>=addW(today(),-1)){d.open=true;openCount++}
     d.innerHTML=`<summary><div class="day-h"><div><b>${fmtD(date)}</b> <small>${date.toLocaleDateString('he-IL',{weekday:'long'})}</small>${isAct?'<span class="tag new">עודכן לפי מה שיש</span>':''}</div>
@@ -912,15 +915,17 @@ const HOW={
 };
 let hvWeek=null, showEmpty=false;
 // edit what actually went into the ground on one planting day
+function hasActWeek(key){const st=new Date(S.start+'T00:00'),w=actWeek(key,st);return Object.keys(S.actual||{}).some(k=>actWeek(k,st)===w)}
+function dropSameWeek(key){const st=new Date(S.start+'T00:00'),w=actWeek(key,st);for(const k of Object.keys(S.actual)) if(k!==key&&actWeek(k,st)===w) delete S.actual[k]}
 function actualEditor(key,items,host,onClose){
   const cur={}, was={};
-  if(S.actual[key]) Object.assign(cur,S.actual[key]); else items.forEach(({r,p})=>cur[r.c.id]=p.P);
+  items.forEach(({r,p})=>cur[r.c.id]=p.P);
   const box=document.createElement('div'); box.className='acted';
   const close=()=>{box.remove();onClose&&onClose()};
   const draw=()=>{
     box.innerHTML=`<p class="hint" style="margin:0 0 8px">אילו שתילים יש לכם לשתילה הזו (קניתם או כבר שתלתם)? המתכנן יסדר מחדש איפה כל אחד נכנס, ואת הקטיף. השתילות הבאות לא משתנות. אחרי השתילה מסמנים "בוצע".</p><ul></ul>
       <select aria-label="הוספת ירק" style="margin-top:8px;width:100%"><option value="">+ הוספת ירק שיש לכם</option>${CROPS.filter(c=>!(c.id in cur)).map(c=>`<option value="${c.id}">${c.n}</option>`).join('')}</select>
-      <div class="row" style="gap:6px;margin-top:10px"><button type="button" class="primary" data-a="save">שמירה</button><button type="button" data-a="cancel">ביטול</button>${S.actual[key]?'<button type="button" data-a="reset">חזרה לתכנון המקורי</button>':''}</div>`;
+      <div class="row" style="gap:6px;margin-top:10px"><button type="button" class="primary" data-a="save">שמירה</button><button type="button" data-a="cancel">ביטול</button>${hasActWeek(key)?'<button type="button" data-a="reset">חזרה לתכנון המקורי</button>':''}</div>`;
     const ul=box.querySelector('ul');
     Object.keys(cur).forEach(id=>{const c=CROPS.find(x=>x.id===id); if(!c) return; const li=document.createElement('li');
       li.innerHTML=`${icon(id)}<span class="nm">${c.n}${c.m==='d'?' (זריעה)':''}</span><div class="ctl"><div class="step"><button type="button" data-d="-1" aria-label="פחות ${c.n}">−</button><output>${cur[id]}</output><button type="button" data-d="1" aria-label="עוד ${c.n}">+</button></div><button type="button" class="yn y" data-v="1" aria-label="יש לי ${c.n}" title="יש לי">✓</button><button type="button" class="yn n" data-v="0" aria-label="אין לי ${c.n}" title="אין לי">✕</button></div>`;
@@ -932,8 +937,8 @@ function actualEditor(key,items,host,onClose){
       ul.appendChild(li)});
     box.querySelector('select').onchange=e=>{if(e.target.value){cur[e.target.value]=1;draw()}};
     box.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{const a=b.dataset.a;
-      if(a==='save'){S.actual[key]=Object.fromEntries(Object.entries(cur).filter(([,v])=>v>0));save();render();toast('התוכנית עודכנה לפי השתילים שיש לכם')}
-      else if(a==='reset'){delete S.actual[key];save();render();toast('חזרה לתכנון המקורי')}
+      if(a==='save'){dropSameWeek(key);S.actual[key]=Object.fromEntries(Object.entries(cur).filter(([,v])=>v>0));save();render();toast('התוכנית עודכנה לפי השתילים שיש לכם')}
+      else if(a==='reset'){dropSameWeek(key);delete S.actual[key];save();render();toast('חזרה לתכנון המקורי')}
       else close()});
   };
   draw(); host.appendChild(box); return box;
@@ -1082,7 +1087,7 @@ async function checkLinkActual(src){
   const days=Object.keys(o||{}).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k));
   if(!days.length){clean();return true}
   const names=days.map(k=>fmtD(new Date(k+'T00:00'))).join(', ');
-  const apply=()=>{for(const k of days){const kk=actKey(k);S.actual[kk]={};for(const id in o[k]) if(CROPS.some(c=>c.id===id)&&+o[k][id]>0) S.actual[kk][id]=+o[k][id]}save();init();clean();toast('התוכנית עודכנה לפי השתילים שיש לכם')};
+  const apply=()=>{for(const k of days){const kk=actKey(k);dropSameWeek(kk);S.actual[kk]={};for(const id in o[k]) if(CROPS.some(c=>c.id===id)&&+o[k][id]>0) S.actual[kk][id]=+o[k][id]}save();init();clean();toast('התוכנית עודכנה לפי השתילים שיש לכם')};
   bar(`<b>עדכון השתילים שיש לכם (${names})</b><br>היומן והערוגות יסתדרו לפי השתילים האלה. שאר התכנון שלכם נשאר.`,'עדכן את התכנון שלי','לא עכשיו',apply,clean);
   return true;
 }
