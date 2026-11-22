@@ -193,6 +193,11 @@ button.ghost{background:transparent}
 .ask-f{display:flex;gap:6px;align-items:end}
 .ask-f textarea{min-height:44px;font-size:16px;flex:1;resize:vertical}
 .move{margin-top:6px}
+.slot{cursor:grab;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.slot.dragging{opacity:.45}
+body.drag-on{cursor:grabbing;-webkit-user-select:none;user-select:none}
+.bed.drop svg{outline:3px dashed var(--leaf);outline-offset:2px;border-radius:8px}
+.drag-badge{position:fixed;z-index:50;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:6px 10px;border-radius:99px;font-size:13px;font-weight:600;white-space:nowrap;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.25)}
 .mv-f{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}
 .mv-f input{width:4.5em;font-size:16px}
 .mv-f select{font-size:16px}
@@ -283,7 +288,7 @@ textarea{width:100%;min-height:120px;font:inherit;font-size:13px;background:var(
 
 <section data-tab="3">
   <h2>מפת הערוגות</h2>
-  <p class="hint">כל ציור הוא צמח במקום שלו בערוגה. כשירק נקטף ומתפנה מקום, השתילה הבאה שם היא ממשפחה אחרת, כדי לגוון את מה שהקרקע נותנת ומקבלת. בחרו שבוע כדי לראות מה גדל באותו זמן. פס ירוק מתחת לערוגה = שותלים שם השבוע. המיקום ביומן (למשל "טפטפות 3–4") סופר טפטפות של 20 ס״מ מהקצה הימני של הערוגה כפי שהיא מצוירת. עיגול מקווקו = טפטפת שזורעים סביבה. לחיצה על ירק מראה מתי הוא נשתל ומה בא אחריו.</p>
+  <p class="hint">כל ציור הוא צמח במקום שלו בערוגה. שתלתם במקום אחר? גררו את הירק למקום הנכון (בטלפון: לחיצה ארוכה ואז גרירה). כשירק נקטף ומתפנה מקום, השתילה הבאה שם היא ממשפחה אחרת, כדי לגוון את מה שהקרקע נותנת ומקבלת. בחרו שבוע כדי לראות מה גדל באותו זמן. פס ירוק מתחת לערוגה = שותלים שם השבוע. המיקום ביומן (למשל "טפטפות 3–4") סופר טפטפות של 20 ס״מ מהקצה הימני של הערוגה כפי שהיא מצוירת. עיגול מקווקו = טפטפת שזורעים סביבה. לחיצה על ירק מראה מתי הוא נשתל ומה בא אחריו.</p>
   <div class="hv-nav map-nav">
     <button type="button" id="mapPrev" aria-label="שבוע קודם">→</button>
     <div class="hv-title"><b id="mapDate"></b><small id="mapSub"></small></div>
@@ -780,6 +785,52 @@ function ensureSymbols(){
   d.innerHTML=`<svg width="0" height="0" style="position:absolute" aria-hidden="true">${CROPS.map(c=>`<symbol id="s-${c.id}" viewBox="0 0 32 32">${ICONS[c.id]||herb()}</symbol>`).join('')}</svg>`;
   document.body.appendChild(d);
 }
+// drag a planting to where it really went: mouse drags right away, a finger holds for a moment first
+let dragJustEnded=false, DR=null;
+const toSvg=(sv,cx,cy)=>{const pt=sv.createSVGPoint();pt.x=cx;pt.y=cy;return pt.matrixTransform(sv.getScreenCTM().inverse())};
+function dragTarget(cx,cy){
+  DR.badge.hidden=true; const el=document.elementFromPoint(cx,cy); DR.badge.hidden=false;
+  const bedEl=el&&el.closest('.bed'); if(!bedEl||bedEl.classList.contains('over')||!bedEl.querySelector('svg')) return null;
+  const bi=+bedEl.dataset.bed, sv=bedEl.querySelector('svg'), bL=DR.K.beds[bi].len*100;
+  const right=toSvg(sv,cx,cy).x+DR.grab, nDr=Math.round(bL/DRIP);
+  return {bi,d:Math.max(1,Math.min(nDr,Math.round((bL-right)/DRIP)+1)),bedEl};
+}
+function dragBegin(){
+  DR.on=true; DR.g.classList.add('dragging'); document.body.classList.add('drag-on');
+  DR.badge=document.createElement('div'); DR.badge.className='drag-badge'; document.body.appendChild(DR.badge);
+  if(navigator.vibrate) try{navigator.vibrate(15)}catch(e){}
+}
+function dragMove(cx,cy){
+  DR.badge.style.left=cx+'px'; DR.badge.style.top=(cy-44)+'px';
+  document.querySelectorAll('.bed.drop').forEach(x=>x.classList.remove('drop'));
+  DR.target=dragTarget(cx,cy);
+  if(DR.target){DR.target.bedEl.classList.add('drop'); DR.badge.textContent=`${DR.pl.r.c.n} → ערוגה ${DR.target.bi+1} · טפטפת ${DR.target.d}`}
+  else DR.badge.textContent=`${DR.pl.r.c.n} · גררו לערוגה`;
+}
+function dragEnd(commit){
+  if(!DR) return; clearTimeout(DR.timer); const d=DR; DR=null;
+  if(!d.on) return;
+  d.g.classList.remove('dragging'); document.body.classList.remove('drag-on'); d.badge&&d.badge.remove();
+  document.querySelectorAll('.bed.drop').forEach(x=>x.classList.remove('drop'));
+  dragJustEnded=true; setTimeout(()=>dragJustEnded=false,400);
+  if(commit&&d.target){const pl=d.pl; S.pins[pl.r.c.id+'@'+iso(pl.p.date)]={bed:d.target.bi,d:d.target.d}; selected=pl.r.c.id+':'+pl.p.k; save(); render(); toast(`${pl.r.c.n} הועבר לערוגה ${d.target.bi+1}, טפטפת ${d.target.d}`)}
+}
+window.addEventListener('pointermove',e=>{
+  if(!DR) return;
+  if(!DR.on){ if(Math.hypot(e.clientX-DR.x,e.clientY-DR.y)<=6) return; if(DR.touch){dragEnd(false);return} dragBegin(); }
+  dragMove(e.clientX,e.clientY);
+});
+window.addEventListener('pointerup',()=>dragEnd(true));
+window.addEventListener('pointercancel',()=>dragEnd(false));
+document.addEventListener('touchmove',e=>{if(DR&&DR.on) e.preventDefault()},{passive:false});
+function enableDrag(g,svg,pl,K,Lcm,rightEdge){
+  g.addEventListener('pointerdown',e=>{
+    if(e.button>0) return;
+    DR={g,pl,K,x:e.clientX,y:e.clientY,on:false,touch:e.pointerType!=='mouse',grab:rightEdge-toSvg(svg,e.clientX,e.clientY).x};
+    if(DR.touch) DR.timer=setTimeout(()=>{if(DR&&!DR.on){dragBegin();dragMove(DR.x,DR.y)}},350);
+  });
+  g.addEventListener('contextmenu',e=>{if(DR) e.preventDefault()});
+}
 function renderBeds(P,K){
   ensureSymbols();
   const weeks=Math.max(P.SW+1,1), nowW=Math.floor((today()-P.start)/864e5/7);
@@ -819,7 +870,8 @@ function renderBeds(P,K){
       mk('line',{x1:x+wd,x2:x+wd,y1:2,y2:Wcm-2,stroke:css('--bg'),'stroke-width':2.5},svg);
       if(pl.p.wk===w) mk('rect',{x:x+2,y:Wcm+5,width:Math.max(0,wd-4),height:5,rx:2.5,fill:css('--leaf')},g);
       mk('title',{},g).textContent=`${c.n} · נשתל ${fmtD(pl.p.date)} · ${where(K,pl)}`;
-      g.addEventListener('click',()=>{selected=key===selected?null:key;showDetail(P,K)});
+      g.addEventListener('click',e=>{if(dragJustEnded){dragJustEnded=false;return} selected=key===selected?null:key;showDetail(P,K)});
+      if(!b.extra) enableDrag(g,svg,pl,K,Lcm,x+wd);
     });
     svg.style.width=(b.len/K.maxLen*100)+'%';
     div.appendChild(svg);
