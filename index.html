@@ -192,6 +192,8 @@ button.ghost{background:transparent}
 .ask-log .a.err{color:var(--warn)}
 .ask-f{display:flex;gap:6px;align-items:end}
 .ask-f textarea{min-height:44px;font-size:16px;flex:1;resize:vertical}
+.margin-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:10px;font-size:14px}
+.margin-row input{width:5em;font-size:16px}
 .paste-link{margin-top:12px;display:grid;gap:6px}
 .empty-toggle{display:flex;align-items:center;gap:8px;width:100%;text-align:start;background:var(--panel);border:1px dashed var(--line);border-radius:12px;padding:10px 12px;font-size:14px;color:var(--muted)}
 .empty-toggle .pm{width:24px;height:24px;border-radius:50%;display:inline-grid;place-items:center;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-weight:700;flex:none}
@@ -259,6 +261,7 @@ textarea{width:100%;min-height:120px;font:inherit;font-size:13px;background:var(
     <div class="g-row g-lbl" aria-hidden="true"><span>כמה</span><span>אורך (מ׳)</span><span>רוחב (ס״מ)</span><span></span></div>
     <div id="groups"></div>
     <button type="button" id="addGroup" class="ghost">+ הוסף גודל ערוגה</button>
+    <div class="margin-row"><label for="gMargin">שוליים לצנרת בכל קצה (ס״מ)</label><input type="number" id="gMargin" min="0" max="50" step="5"><span class="hint" id="dripInfo" style="margin:0"></span></div>
   </div>
   <div class="panel paste-link">
     <label class="f" for="pasteLink">יש לכם קישור שמור לתכנון? הדביקו אותו כאן</label>
@@ -501,7 +504,7 @@ function defaultState(sample){
   const t=today(); const endY=t.getMonth()>=6?t.getFullYear()+1:t.getFullYear();
   const qty={}; CROPS.forEach(c=>qty[c.id]=sample?c.d:0);
   const per={}; PER.forEach(x=>per[x.id]=sample?x.d:0);
-  return {name:'',start:iso(t),end:endY+'-05-15',groups:[{n:6,len:3,wid:80}],rhythm:2,qty,per,done:{},actual:{},cm:'deep'};
+  return {name:'',start:iso(t),end:endY+'-05-15',groups:[{n:6,len:3,wid:80}],rhythm:2,qty,per,done:{},actual:{},cm:'deep',margin:10};
 }
 let S;
 try{S=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){S=null}
@@ -509,6 +512,7 @@ const HAD_SAVED=!!(S&&S.qty);
 if(!S||!S.qty){S=defaultState(true)}
 if(!S.per){S.per={}}
 if(!S.actual){S.actual={}}
+if(S.margin==null){S.margin=10}
 if(!S.groups){S.groups=[{n:+S.beds||6,len:+S.len||3,wid:+S.wid||80}]}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 
@@ -573,7 +577,7 @@ function plan(){
 const SOW={carrot:'זורעים 4 שורות בלי מרווחים, ומדללים אחרי הנביטה לשתי אצבעות',radish:'זורעים בלי מרווחים, עד 6 שורות',turnip:'זורעים בלי מרווחים'};
 const dripLines=wid=>Math.max(1,Math.round(wid/26.7));
 function geo(c,wid){if(c.m==='d'){const nRows=dripLines(wid);return {nRows,ppm:nRows*100/20}}/* rows may sit up to 10% closer than the course spacing, except for crops that need room */const nRows=Math.max(1,Math.floor(c.r*wid/(ROOMY.has(c.id)?80:72)+1e-9));const ppm=nRows*100/c.sp;return {nRows,ppm}}
-function bedList(){const out=[];for(const g of S.groups){const n=Math.max(0,Math.min(60,+g.n|0));for(let i=0;i<n;i++)out.push({len:Math.max(.3,+g.len||3),wid:Math.max(20,+g.wid||80)})}return out}
+function bedList(){const out=[];for(const g of S.groups){const n=Math.max(0,Math.min(60,+g.n|0));const full=Math.max(.3,+g.len||3), m=Math.max(0,+S.margin||0)/100; for(let i=0;i<n;i++)out.push({len:Math.max(.2,full-2*m),full,wid:Math.max(20,+g.wid||80)})}return out}
 // pack slots into beds (grouped by family for rotation)
 // crops that need their full spacing: get the widest beds first and are never squeezed
 const ROOMY=new Set(['fennel','cabbage','cauli','broccoli','kale','chard','lettuce','kohlrabi']);
@@ -661,7 +665,7 @@ const where=(K,pl)=>pl?(pl.parts&&pl.parts.length>1?pl.parts.map(where1).join(' 
 
 // ---------- render ----------
 const $=id=>document.getElementById(id);
-const INPUTS={gName:'name',gStart:'start',gEnd:'end',gRhythm:'rhythm',cMethod:'cm'};
+const INPUTS={gName:'name',gStart:'start',gEnd:'end',gRhythm:'rhythm',cMethod:'cm',gMargin:'margin'};
 function fillInputs(){for(const [id,k] of Object.entries(INPUTS)) $(id).value=S[k]; renderGroups()}
 function renderGroups(){
   const box=$('groups'); box.innerHTML='';
@@ -683,7 +687,7 @@ function bindInputs(){
   for(const [id,k] of Object.entries(INPUTS)){
     const el=$(id);
     el.addEventListener('input',()=>{
-      let v=el.value; if(el.type==='number'){v=parseFloat(v); if(!(v>0))return}
+      let v=el.value; if(el.type==='number'){v=parseFloat(v); if(!(v>0)&&!(id==='gMargin'&&v===0))return}
       S[k]=v; save(); render(false);
     });
   }
@@ -730,6 +734,7 @@ function renderPer(){
 let selected=null;
 let mapWeek=null;
 function render(){
+  {const di=$('dripInfo'); if(di){const ls=[...new Set(bedList().map(b=>b.full+'|'+b.len))].map(x=>{const [f,l]=x.split('|');return `ערוגה של ${r1(+f)} מ׳ = ${Math.round(+l*100/DRIP)} טפטפות בכל קו`}); di.textContent=ls.join(' · ')}}
   const P=plan(); const K=pack(P.rows,P.SW);
   const fits=!K.overflow;
   const dates=new Set(); P.rows.forEach(r=>r.pulses.forEach(p=>dates.add(p.wk)));
@@ -781,7 +786,7 @@ function renderBeds(P,K){
     const usedM=here.reduce((a,pl)=>a+pl.n*SEG,0), free=b.len-usedM;
     const div=document.createElement('div'); div.className='bed'+(b.extra?' over':''); div.dataset.bed=i;
     if(!here.length&&!b.extra){empties.push(i+1); div.classList.add('empty-bed'); div.hidden=!showEmpty}
-    div.innerHTML=`<h3><span>ערוגה ${i+1} <small style="font-weight:600">${r1(b.len)} מ׳ × ${Math.round(b.wid)} ס״מ</small>${b.extra?' · אין לה מקום בגינה':''}</span><span>${here.length?(free>0.05?'פנוי '+r1(free)+' מ׳':'מלאה'):'פנויה'}</span></h3>`;
+    div.innerHTML=`<h3><span>ערוגה ${i+1} <small style="font-weight:600">${Math.round(b.len*100/DRIP)} טפטפות · ${Math.round(b.wid)} ס״מ</small>${b.extra?' · אין לה מקום בגינה':''}</span><span>${here.length?(free>0.05?'פנוי '+r1(free)+' מ׳':'מלאה'):'פנויה'}</span></h3>`;
     const Wcm=b.wid, Lcm=b.len*100;
     const svg=mk('svg',{viewBox:`${-pad} ${-pad} ${Lcm+pad*2} ${Wcm+pad*2+18}`,role:'img','aria-label':`ערוגה ${i+1}`});
     mk('rect',{x:0,y:0,width:Lcm,height:Wcm,rx:6,fill:b.extra?'none':css('--soil'),stroke:b.extra?css('--warn'):css('--soil-edge'),'stroke-width':b.extra?3:2,'stroke-dasharray':b.extra?'10 8':'0'},svg);
@@ -1047,7 +1052,7 @@ async function zip(u8,dir){
 }
 const nz=o=>Object.fromEntries(Object.entries(o||{}).filter(([,v])=>+v>0));
 async function planToLink(){
-  const o={v:1,n:S.name,s:S.start,e:S.end,g:S.groups,r:+S.rhythm,q:nz(S.qty),p:nz(S.per),d:Object.keys(S.done||{}).filter(k=>S.done[k]),c:S.cm,a:S.actual};
+  const o={v:1,n:S.name,s:S.start,e:S.end,g:S.groups,r:+S.rhythm,q:nz(S.qty),p:nz(S.per),d:Object.keys(S.done||{}).filter(k=>S.done[k]),c:S.cm,a:S.actual,m:S.margin};
   const raw=new TextEncoder().encode(JSON.stringify(o));
   const z=await zip(raw,'in').catch(()=>null);
   const code=z?'z'+b64u.enc(z):'j'+b64u.enc(raw);
@@ -1058,7 +1063,7 @@ async function linkToPlan(code){
   const raw=kind==='z'?await zip(bytes,'out'):bytes;
   const o=JSON.parse(new TextDecoder().decode(raw));
   const st=defaultState(false);
-  Object.assign(st,{name:o.n||'',start:o.s||st.start,end:o.e||st.end,groups:Array.isArray(o.g)&&o.g.length?o.g:st.groups,rhythm:o.r||2,cm:o.c||'deep'});
+  Object.assign(st,{name:o.n||'',start:o.s||st.start,end:o.e||st.end,groups:Array.isArray(o.g)&&o.g.length?o.g:st.groups,rhythm:o.r||2,cm:o.c||'deep',margin:o.m==null?0:+o.m});
   for(const k in o.q||{}) if(k in st.qty) st.qty[k]=+o.q[k];
   for(const k in o.p||{}) if(k in st.per) st.per[k]=+o.p[k];
   (o.d||[]).forEach(k=>st.done[k]=true);
@@ -1114,7 +1119,7 @@ $('btnActAdd').addEventListener('click',()=>{
 // ---------- ask Claude (only where the page runs inside Claude; hidden elsewhere) ----------
 function planContext(){
   const P=plan(), K=pack(P.rows,P.SW), t=today();
-  const beds=bedList().map((b,i)=>`ערוגה ${i+1}: ${b.len} מ׳ × ${b.wid} ס״מ`).join('; ');
+  const beds=bedList().map((b,i)=>`ערוגה ${i+1}: ${r1(b.len)} מ׳ שימושיים (${Math.round(b.len*100/DRIP)} טפטפות בכל קו) × ${b.wid} ס״מ`).join('; ');
   const crops=P.rows.map(r=>{const c=r.c,h=HC[c.id];
     return `- ${c.n}: ${+S.qty[c.id]||0} ${c.u} בשבוע; ${c.m==='d'?'זריעה ישירה':'שתילה'}; ${geo(c,80).nRows} שורות בערוגת 80, ${c.sp} ס״מ בשורה; משפחה: ${FAM[c.f].n}`+(h?`; ${HT[h.t][0]}${h.plus?'+':''}, קטיף ראשון אחרי ${h.first} שבועות${h.win?', חלון קטיף '+h.win+' שבועות':''}${h.cuts?', '+h.cuts+' חיתוכים':''}${h.span?', '+h.span:''}`:'')+(HOW[c.id]?`; איך קוטפים (טיפ כללי): ${HOW[c.id]}`:'')}).join('\n');
   const acts=Object.keys(S.actual||{}).map(k=>`${k}: `+Object.entries(S.actual[k]).map(([id,q])=>(CROPS.find(c=>c.id===id)||{n:id}).n+' '+q).join(', ')).join('\n');
