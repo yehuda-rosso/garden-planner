@@ -1170,21 +1170,7 @@ async function checkLinkActual(src){
   bar(`<b>עדכון השתילים שיש לכם (${names})</b><br>היומן והערוגות יסתדרו לפי השתילים האלה. שאר התכנון שלכם נשאר.`,'עדכן את התכנון שלי','לא עכשיו',apply,clean);
   return true;
 }
-// #pins=<code>: where each crop of one planting day actually went: {day:'YYYY-MM-DD', p:{crop:[bed,dripper]}} (bed counted from 1)
-async function checkLinkPins(src){
-  const m=(src||location.hash).match(/pins=([A-Za-z0-9_-]+)/); if(!m) return false;
-  const clean=()=>history.replaceState(null,'',location.pathname+location.search);
-  let o; try{const kind=m[1][0],bytes=b64u.dec(m[1].slice(1));o=JSON.parse(new TextDecoder().decode(kind==='z'?await zip(bytes,'out'):bytes))}catch(e){clean();toast('הקישור פגום');return true}
-  const apply=()=>{
-    const P=plan(), w=Math.max(0,actWeek(o.day||S.start,P.start)); let n=0;
-    for(const k of Object.keys(S.pins)){const d=k.split('@')[1]; if(actWeek(d,P.start)===w) delete S.pins[k]}
-    for(const r of P.rows){const v=(o.p||{})[r.c.id]; if(!v) continue; const pu=r.pulses.find(x=>x.wk===w); if(!pu) continue; S.pins[r.c.id+'@'+iso(pu.date)]={bed:Math.max(0,(+v[0]||1)-1),d:Math.max(1,+v[1]||1)}; n++}
-    save();init();clean();toast(`עודכנו המיקומים של ${n} ירקות`)};
-  bar(`<b>עדכון מיקומים בערוגות</b><br>הירקות יסומנו במקום שבו נשתלו בפועל, והשאר יסתדר סביבם.`,'עדכן את התכנון שלי','לא עכשיו',apply,clean);
-  return true;
-}
 async function checkLinkPlan(src){
-  if(await checkLinkPins(src)) return;
   if(await checkLinkActual(src)) return;
   const m=(src||location.hash).match(/plan=([A-Za-z0-9_-]+)/); if(!m) return;
   const clean=()=>history.replaceState(null,'',location.pathname+location.search);
@@ -1275,7 +1261,7 @@ document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',
 bindInputs();init();
 {let t=null;try{t=localStorage.getItem(KEY+'-tab')}catch(e){} showTab(t||(HAD_SAVED&&Object.values(S.qty).some(v=>+v>0)?3:1))}
 checkLinkPlan();
-$('btnPasteLink').addEventListener('click',async()=>{const v=$('pasteLink').value.trim(); if(!/(plan|actual|pins)=[A-Za-z0-9_-]+/.test(v)){toast('זה לא נראה כמו קישור של המתכנן');return} await checkLinkPlan(v); $('pasteLink').value=''});
+$('btnPasteLink').addEventListener('click',async()=>{const v=$('pasteLink').value.trim(); if(!/(plan|actual)=[A-Za-z0-9_-]+/.test(v)){toast('זה לא נראה כמו קישור של המתכנן');return} await checkLinkPlan(v); $('pasteLink').value=''});
 window.addEventListener('hashchange',()=>checkLinkPlan());
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>render());
 new MutationObserver(()=>render()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
