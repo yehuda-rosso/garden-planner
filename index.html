@@ -192,6 +192,10 @@ button.ghost{background:transparent}
 .ask-log .a.err{color:var(--warn)}
 .ask-f{display:flex;gap:6px;align-items:end}
 .ask-f textarea{min-height:44px;font-size:16px;flex:1;resize:vertical}
+.move{margin-top:6px}
+.mv-f{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}
+.mv-f input{width:4.5em;font-size:16px}
+.mv-f select{font-size:16px}
 .margin-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:10px;font-size:14px}
 .margin-row input{width:5em;font-size:16px}
 .paste-link{margin-top:12px;display:grid;gap:6px}
@@ -504,7 +508,7 @@ function defaultState(sample){
   const t=today(); const endY=t.getMonth()>=6?t.getFullYear()+1:t.getFullYear();
   const qty={}; CROPS.forEach(c=>qty[c.id]=sample?c.d:0);
   const per={}; PER.forEach(x=>per[x.id]=sample?x.d:0);
-  return {name:'',start:iso(t),end:endY+'-05-15',groups:[{n:6,len:3,wid:80}],rhythm:2,qty,per,done:{},actual:{},cm:'deep',margin:10};
+  return {name:'',start:iso(t),end:endY+'-05-15',groups:[{n:6,len:3,wid:80}],rhythm:2,qty,per,done:{},actual:{},cm:'deep',margin:10,pins:{}};
 }
 let S;
 try{S=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){S=null}
@@ -513,6 +517,7 @@ if(!S||!S.qty){S=defaultState(true)}
 if(!S.per){S.per={}}
 if(!S.actual){S.actual={}}
 if(S.margin==null){S.margin=10}
+if(!S.pins){S.pins={}}
 if(!S.groups){S.groups=[{n:+S.beds||6,len:+S.len||3,wid:+S.wid||80}]}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 
@@ -591,7 +596,8 @@ function pack(rows,SW){
   const rankNarrow=[...beds.keys()].sort((x,y)=>beds[x].wid-beds[y].wid||x-y);
   const events=[]; rows.forEach(r=>r.pulses.forEach(p=>events.push({r,p})));
   const segsFor=(c,P,wid)=>Math.max(1,Math.ceil(P/geo(c,wid).ppm/SEG-1e-9));
-  events.sort((a,b)=>a.p.wk-b.p.wk||(ROOMY.has(b.r.c.id)-ROOMY.has(a.r.c.id))||(b.p.P/geo(b.r.c,80).ppm)-(a.p.P/geo(a.r.c,80).ppm));
+  const pinOf=(r,p)=>(S.pins||{})[r.c.id+'@'+iso(p.date)];
+  events.sort((a,b)=>a.p.wk-b.p.wk||(!!pinOf(b.r,b.p)-!!pinOf(a.r,a.p))||(ROOMY.has(b.r.c.id)-ROOMY.has(a.r.c.id))||(b.p.P/geo(b.r.c,80).ppm)-(a.p.P/geo(a.r.c,80).ppm));
   const places=[], byPulse={};
   let overflow=0;
   function putPl(r,p,bi,st,n,plants){
@@ -606,6 +612,12 @@ function pack(rows,SW){
   for(const {r,p} of events){
     const c=r.c, w=p.wk, roomy=ROOMY.has(c.id), order=roomy?rankWide:rankNarrow;
     let best=null;
+    // where it was actually planted, as the gardener recorded it
+    const pin=pinOf(r,p);
+    if(pin&&pin.bed>=0&&pin.bed<beds.length&&!beds[pin.bed].extra){
+      const b=beds[pin.bed], st=Math.min(Math.max(0,Math.round((pin.d-1)*DRIP/100/SEG)),b.segs.length-1), n=Math.min(b.segs.length-st,segsFor(c,p.P,b.wid));
+      const pl=putPl(r,p,pin.bed,st,n,p.P); pl.pinned=true; byPulse[c.id+':'+p.k]=pl; continue;
+    }
     order.forEach((bi,rank)=>{
       const b=beds[bi]; const n=segsFor(c,p.P,b.wid); const L=b.segs.length; if(n>L) return;
       let run=0;
@@ -840,7 +852,16 @@ function showDetail(P,K){
   const c=pl.r.c, verb=c.m==='d'?'נזרע':'נשתל';
   const before=pl.prevPl.length?'לפניו: '+pl.prevPl.map(q=>`${q.r.c.n} (${FAM[q.r.c.f].n})`).join(', ')+(pl.sameFam?' <span class="rot bad">אותה משפחה</span>':' <span class="rot ok">↻ משפחה אחרת</span>'):'אדמה שעוד לא גדל בה כלום העונה.';
   const after=pl.next.length?'אחריו: '+pl.next.map(q=>`${q.r.c.n} (${FAM[q.r.c.f].n}) ב-${fmtD(q.p.date)}`).join(', ')+'.':'אחריו המקום נשאר פנוי עד סוף העונה.';
-  el.innerHTML=`${icon(c.id)} <b>${c.n}</b> · ${where(K,pl)}${pl.parts&&pl.parts.length>1?' · השתילה מפוצלת כי אין רצף פנוי אחד':' ('+cmRange(pl)+')'}, ${c.m==='d'?`זורעים סביב הטפטפות בכל ${pl.nRows} קווי הטפטוף${SOW[c.id]?'. '+SOW[c.id]:''}`:`${pl.nRows} שורות כל ${c.sp} ס״מ`}<br>${verb} ב-${fmtD(pl.p.date)}: ${c.m==='d'?`סביב ${pl.plants} טפטפות`:pl.plants+' שתילים'}. קטיף ${fmtD(addW(P.start,Math.ceil(pl.p.hs)))}–${fmtD(addW(P.start,Math.floor(pl.p.he)))}.<br>${before}<br>${after}`;
+  const pinKey=c.id+'@'+iso(pl.p.date), nDr=b=>Math.round(K.beds[b].len*100/DRIP);
+  el.innerHTML=`${icon(c.id)} <b>${c.n}</b>${pl.pinned?' <span class="tag new">מיקום בפועל</span>':''} · ${where(K,pl)}${pl.parts&&pl.parts.length>1?' · השתילה מפוצלת כי אין רצף פנוי אחד':' ('+cmRange(pl)+')'}, ${c.m==='d'?`זורעים סביב הטפטפות בכל ${pl.nRows} קווי הטפטוף${SOW[c.id]?'. '+SOW[c.id]:''}`:`${pl.nRows} שורות כל ${c.sp} ס״מ`}<br>${verb} ב-${fmtD(pl.p.date)}: ${c.m==='d'?`סביב ${pl.plants} טפטפות`:pl.plants+' שתילים'}. קטיף ${fmtD(addW(P.start,Math.ceil(pl.p.hs)))}–${fmtD(addW(P.start,Math.floor(pl.p.he)))}.<br>${before}<br>${after}
+    <div class="move"><button type="button" class="act-btn" id="mvOpen">📍 שתלתי במקום אחר</button>${pl.pinned?' <button type="button" class="act-btn" id="mvReset">חזרה למיקום המתוכנן</button>':''}
+    <div class="mv-f" id="mvForm" hidden><label>ערוגה <select id="mvBed">${K.beds.map((b,i)=>b.extra?'':`<option value="${i}"${i===pl.bed?' selected':''}>${i+1}</option>`).join('')}</select></label>
+    <label>מטפטפת <input type="number" id="mvDrip" min="1" max="${nDr(pl.bed)}" value="${Math.round(pl.st*SEG*100/DRIP)+1}"></label>
+    <button type="button" class="primary" id="mvSave">שמירה</button></div>
+    <p class="hint" style="margin:4px 0 0">המתכנן יסדר את שאר השתילות מסביב, ולא יזיז את מה שסימנתם.</p></div>`;
+  $('mvOpen').onclick=()=>{$('mvForm').hidden=false;$('mvOpen').hidden=true};
+  $('mvSave').onclick=()=>{const bed=+$('mvBed').value,d=Math.max(1,Math.min(nDr(bed),Math.round(+$('mvDrip').value)||1));S.pins[pinKey]={bed,d};save();render();toast('המיקום עודכן')};
+  if(pl.pinned) $('mvReset').onclick=()=>{delete S.pins[pinKey];save();render();toast('חזרה למיקום המתוכנן')};
 }
 $('mapPrev').addEventListener('click',()=>{mapWeek--;selected=null;render()});
 $('mapNext').addEventListener('click',()=>{mapWeek++;selected=null;render()});
@@ -1052,7 +1073,7 @@ async function zip(u8,dir){
 }
 const nz=o=>Object.fromEntries(Object.entries(o||{}).filter(([,v])=>+v>0));
 async function planToLink(){
-  const o={v:1,n:S.name,s:S.start,e:S.end,g:S.groups,r:+S.rhythm,q:nz(S.qty),p:nz(S.per),d:Object.keys(S.done||{}).filter(k=>S.done[k]),c:S.cm,a:S.actual,m:S.margin};
+  const o={v:1,n:S.name,s:S.start,e:S.end,g:S.groups,r:+S.rhythm,q:nz(S.qty),p:nz(S.per),d:Object.keys(S.done||{}).filter(k=>S.done[k]),c:S.cm,a:S.actual,m:S.margin,x:S.pins};
   const raw=new TextEncoder().encode(JSON.stringify(o));
   const z=await zip(raw,'in').catch(()=>null);
   const code=z?'z'+b64u.enc(z):'j'+b64u.enc(raw);
@@ -1068,6 +1089,7 @@ async function linkToPlan(code){
   for(const k in o.p||{}) if(k in st.per) st.per[k]=+o.p[k];
   (o.d||[]).forEach(k=>st.done[k]=true);
   if(o.a&&typeof o.a==='object') st.actual=o.a;
+  if(o.x&&typeof o.x==='object') st.pins=o.x;
   return st;
 }
 function bar(msg,yes,no,onYes,onNo,text){
